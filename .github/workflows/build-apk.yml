@@ -30,9 +30,9 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
-          grep -q 'Admin Dashboard v4 DIRECT' "$MAIN"
+          grep -q 'Admin Dashboard v4.1' "$MAIN"
           grep -q 'MY EMPLOYEE DASHBOARD' "$MAIN"
-          grep -q 'Attendance radius: 50 metres' "$MAIN"
+          grep -q 'LEAVE REQUESTS' "$MAIN"
           cat >> "$P/app/build.gradle" <<'EOF'
 
           android {
@@ -43,7 +43,7 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-          echo "DIRECT V4 SOURCE VERIFIED"
+          echo "DIRECT V4.1 SOURCE VERIFIED"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -62,6 +62,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-v4-DIRECT
+          name: PhysioVertex-v4.1-DIRECT
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
