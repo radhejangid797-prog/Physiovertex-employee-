@@ -20,18 +20,33 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Find Android project
+      - name: Extract Android project
         run: |
-          echo "Files in repository:"
-          find . -maxdepth 3 -type f | head -100
+          mkdir -p android_project
+          unzip -o *.zip -d android_project
+
+      - name: Find Gradle project
+        run: |
+          echo "Searching for gradlew..."
+          find android_project -name gradlew -type f
 
       - name: Build APK
         run: |
-          chmod +x gradlew
+          GRADLEW=$(find android_project -name gradlew -type f | head -1)
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: gradlew not found"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "Project directory: $PROJECT_DIR"
+
+          chmod +x "$GRADLEW"
+          cd "$PROJECT_DIR"
           ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-APK
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: android_project/**/build/outputs/apk/debug/*.apk
