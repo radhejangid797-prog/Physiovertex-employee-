@@ -24,7 +24,7 @@ jobs:
           unzip -o "$ZIP" -d android-project
           SETTINGS=$(find android-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)
           echo "dir=$(dirname "$SETTINGS")" >> "$GITHUB_OUTPUT"
-      - name: Configure v4
+      - name: Restore working v3 admin baseline
         shell: bash
         run: |
           set -e
@@ -37,8 +37,16 @@ jobs:
           }
           EOF
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
-          sed -i 's/Attendance radius: 300 metres/Attendance radius: 50 metres/' "$MAIN" || true
-          sed -i 's/PhysioVertex/PhysioVertex v4/' "$MAIN" || true
+          curl -fsSL "https://raw.githubusercontent.com/radhejangid797-prog/Physiovertex-employee-/6c54651cfde4823526088d4b2b9ec16578f01619/.github/workflows/build-apk.yml" > /tmp/v3.yml
+          python3 - "$MAIN" <<'PY'
+          import re, sys
+          text=open('/tmp/v3.yml').read()
+          m=re.search(r'cat > "\$MAIN" <<\x27EOF\x27\n(.*?)\n          EOF\n', text, re.S)
+          if not m: raise SystemExit('v3 MainActivity not found')
+          code='\n'.join(line[10:] if line.startswith('          ') else line for line in m.group(1).splitlines())
+          code=code.replace('Attendance radius: 300 metres','Attendance radius: 50 metres')
+          open(sys.argv[1],'w').write(code+'\n')
+          PY
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -56,6 +64,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-v4
+          name: PhysioVertex-v4-baseline
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
