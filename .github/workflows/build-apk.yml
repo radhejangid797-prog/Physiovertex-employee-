@@ -24,7 +24,7 @@ jobs:
           unzip -o "$ZIP" -d android-project
           SETTINGS=$(find android-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)
           echo "dir=$(dirname "$SETTINGS")" >> "$GITHUB_OUTPUT"
-      - name: Restore working v3 admin baseline
+      - name: Configure v4 features
         shell: bash
         run: |
           set -e
@@ -42,9 +42,25 @@ jobs:
           import re, sys
           text=open('/tmp/v3.yml').read()
           m=re.search(r'cat > "\$MAIN" <<\x27EOF\x27\n(.*?)\n          EOF\n', text, re.S)
-          if not m: raise SystemExit('v3 MainActivity not found')
+          if not m: raise SystemExit('v3 source not found')
           code='\n'.join(line[10:] if line.startswith('          ') else line for line in m.group(1).splitlines())
           code=code.replace('Attendance radius: 300 metres','Attendance radius: 50 metres')
+          code=code.replace('v.addView(title("Admin Dashboard"))','v.addView(title("Admin Dashboard v4"))\n        v.addView(button("MY EMPLOYEE DASHBOARD") { currentEmployee = "PV001"; showEmployeeDashboard() })\n        v.addView(space())')
+          old='''if (empId.isBlank() || name.text.toString().isBlank() || pass.text.toString().isBlank()) {
+                    Toast.makeText(this, "ID, Name and Password required", Toast.LENGTH_SHORT).show()
+                } else {'''
+          new='''if (empId.isBlank() || name.text.toString().isBlank() || pass.text.toString().isBlank()) {
+                    Toast.makeText(this, "ID, Name and Password required", Toast.LENGTH_SHORT).show()
+                } else if (!prefs.contains("emp_${empId}_pass") && employeeIds().size >= 10) {
+                    Toast.makeText(this, "Maximum 10 employees allowed", Toast.LENGTH_SHORT).show()
+                } else {'''
+          code=code.replace(old,new)
+          code=code.replace('prefs.edit().putString("in_${currentEmployee}_$date", time).apply(); refresh()','prefs.edit().putString("in_${currentEmployee}_$date", time).putLong("inms_${currentEmployee}_$date", System.currentTimeMillis()).apply(); refresh()')
+          code=code.replace('prefs.edit().putString("out_${currentEmployee}_$date", time).apply(); refresh()','prefs.edit().putString("out_${currentEmployee}_$date", time).putLong("outms_${currentEmployee}_$date", System.currentTimeMillis()).apply(); refresh()')
+          code=code.replace('status.text = "Today\\nIN: ${i ?: "Not marked"}\\nOUT: ${o ?: "Not marked"}"','''val ims = prefs.getLong("inms_${currentEmployee}_$date", 0L)
+                val oms = prefs.getLong("outms_${currentEmployee}_$date", 0L)
+                val worked = if (ims > 0 && oms >= ims) { val mins=(oms-ims)/60000; "${mins/60}h ${mins%60}m" } else "-"
+                status.text = "Today\\nIN: ${i ?: "Not marked"}\\nOUT: ${o ?: "Not marked"}\\nWORKED: $worked"''')
           open(sys.argv[1],'w').write(code+'\n')
           PY
       - uses: gradle/actions/setup-gradle@v4
@@ -64,6 +80,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-v4-baseline
+          name: PhysioVertex-v4-features
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
