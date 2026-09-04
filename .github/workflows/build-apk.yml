@@ -26,15 +26,11 @@ jobs:
         shell: bash
         run: |
           set -e
-
           ZIP_FILE=$(find . -maxdepth 2 -type f -name "*.zip" | head -n 1)
-
           if [ -z "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found"
-            find . -maxdepth 3 -type f | sort
             exit 1
           fi
-
           echo "Found ZIP: $ZIP_FILE"
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
 
@@ -42,114 +38,69 @@ jobs:
         shell: bash
         run: |
           set -e
-
           rm -rf android-project
           mkdir -p android-project
-
           unzip -o "${{ steps.zip.outputs.zip_file }}" -d android-project
-
-          echo "Extracted files:"
-          find android-project -maxdepth 4 -type f | sort
 
       - name: Find Gradle project
         id: project
         shell: bash
         run: |
           set -e
-
-          SETTINGS_FILE=$(find android-project -type f \( \
-            -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \
-          \) | head -n 1)
-
+          SETTINGS_FILE=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
           if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: settings.gradle not found"
-            find android-project -maxdepth 5 -type f | sort
             exit 1
           fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
-
-          echo "Android project directory:"
-          echo "$PROJECT_DIR"
-
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Project: $PROJECT_DIR"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Fix Java and Kotlin JVM target
+      - name: Align Kotlin target with project Java target
         shell: bash
         run: |
           set -e
-
           PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
 
           cat > "$PROJECT_DIR/jvm-fix.gradle" <<'EOF'
           allprojects {
-              tasks.withType(JavaCompile).configureEach {
-                  sourceCompatibility = "17"
-                  targetCompatibility = "17"
-              }
-
-              tasks.configureEach {
-                  if (name.contains("Kotlin")) {
-                      try {
-                          kotlinOptions.jvmTarget = "17"
-                      } catch (Exception ignored) {
-                      }
+              tasks.configureEach { task ->
+                  if (task.class.name == "org.jetbrains.kotlin.gradle.tasks.KotlinCompile") {
+                      task.kotlinOptions.jvmTarget = "1.8"
                   }
               }
           }
           EOF
 
-          echo "JVM target fix created:"
+          echo "Using JVM compatibility patch:"
           cat "$PROJECT_DIR/jvm-fix.gradle"
 
       - name: Build Debug APK
         shell: bash
         run: |
           set -e
-
           cd "${{ steps.project.outputs.project_dir }}"
-
-          echo "JAVA_HOME=$JAVA_HOME"
           java -version
           gradle --version
-
-          gradle \
-            -I jvm-fix.gradle \
-            assembleDebug \
-            --stacktrace \
-            --no-daemon
+          gradle -I jvm-fix.gradle assembleDebug --stacktrace --no-daemon
 
       - name: Find APK
         id: apk
         shell: bash
         run: |
           set -e
-
-          APK_FILE=$(find "${{ steps.project.outputs.project_dir }}" \
-            -type f \
-            -path "*/build/outputs/apk/debug/*.apk" \
-            | head -n 1)
-
+          APK_FILE=$(find "${{ steps.project.outputs.project_dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -n 1)
           if [ -z "$APK_FILE" ]; then
             echo "ERROR: APK not found"
-
-            find "${{ steps.project.outputs.project_dir }}" \
-              -type f \
-              -name "*.apk" \
-              -print
-
+            find "${{ steps.project.outputs.project_dir }}" -type f -name "*.apk" -print
             exit 1
           fi
-
-          echo "APK found:"
-          echo "$APK_FILE"
-
+          echo "APK found: $APK_FILE"
           echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
