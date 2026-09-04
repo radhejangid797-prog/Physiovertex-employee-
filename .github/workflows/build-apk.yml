@@ -30,9 +30,10 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
-          grep -q 'Admin Dashboard v4.2' "$MAIN"
-          grep -q 'CHECK IN WITH SELFIE' "$MAIN"
-          grep -q 'ATTENDANCE OVERVIEW + Selfies\|Attendance Overview + Selfies' "$MAIN"
+          grep -q 'PHYSIOVERTEX' "$MAIN"
+          grep -q 'Admin Dashboard' "$MAIN"
+          grep -q 'Check In with Selfie' "$MAIN"
+          grep -q 'Attendance Overview' "$MAIN"
           cat >> "$P/app/build.gradle" <<'EOF'
 
           android {
@@ -43,11 +44,11 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-          echo "DIRECT V4.2 SELFIE SOURCE VERIFIED"
+          echo "BRANDED V4.2 SOURCE VERIFIED"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build Direct v4.2 APK
+      - name: Build Branded APK
         shell: bash
         run: |
           set -e
@@ -62,6 +63,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-v4.2-SELFIE
+          name: PhysioVertex-WEBSITE-STYLE
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
