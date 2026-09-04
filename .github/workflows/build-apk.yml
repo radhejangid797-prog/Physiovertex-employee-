@@ -27,11 +27,7 @@ jobs:
         run: |
           set -e
           ZIP_FILE=$(find . -maxdepth 2 -type f -name "*.zip" | head -n 1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Android project ZIP not found"
-            exit 1
-          fi
-          echo "Found ZIP: $ZIP_FILE"
+          test -n "$ZIP_FILE"
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Extract Android project
@@ -48,26 +44,16 @@ jobs:
         run: |
           set -e
           SETTINGS_FILE=$(find android-project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "ERROR: settings.gradle not found"
-            exit 1
-          fi
+          test -n "$SETTINGS_FILE"
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-          echo "Project: $PROJECT_DIR"
 
-      - name: Force JVM 17 in Android module
+      - name: Add employee attendance and salary app
         shell: bash
         run: |
           set -e
           PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
           APP_GRADLE="$PROJECT_DIR/app/build.gradle"
-
-          if [ ! -f "$APP_GRADLE" ]; then
-            echo "ERROR: app/build.gradle not found"
-            exit 1
-          fi
-
           cat >> "$APP_GRADLE" <<'EOF'
 
           android {
@@ -75,14 +61,160 @@ jobs:
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
+              kotlinOptions { jvmTarget = '17' }
           }
           EOF
 
-          echo "Patched app/build.gradle:"
-          cat "$APP_GRADLE"
+          MAIN=$(find "$PROJECT_DIR/app/src/main/java" -type f -name "MainActivity.kt" | head -n 1)
+          test -n "$MAIN"
+          cat > "$MAIN" <<'EOF'
+          package com.physiovertex.app
+
+          import android.app.Activity
+          import android.os.Bundle
+          import android.graphics.Color
+          import android.graphics.Typeface
+          import android.text.InputType
+          import android.view.Gravity
+          import android.view.View
+          import android.widget.*
+          import java.text.SimpleDateFormat
+          import java.util.*
+
+          class MainActivity : Activity() {
+              private val blue = Color.rgb(24, 92, 180)
+              private val prefs by lazy { getSharedPreferences("physiovertex", MODE_PRIVATE) }
+              private lateinit var root: LinearLayout
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  showLogin()
+              }
+
+              private fun base(): LinearLayout {
+                  val scroll = ScrollView(this)
+                  root = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(48, 56, 48, 56)
+                      setBackgroundColor(Color.rgb(245, 249, 255))
+                  }
+                  scroll.addView(root)
+                  setContentView(scroll)
+                  return root
+              }
+
+              private fun title(text: String) = TextView(this).apply {
+                  this.text = text
+                  textSize = 28f
+                  setTextColor(blue)
+                  setTypeface(null, Typeface.BOLD)
+                  gravity = Gravity.CENTER
+                  setPadding(0, 20, 0, 28)
+              }
+
+              private fun label(text: String) = TextView(this).apply {
+                  this.text = text
+                  textSize = 17f
+                  setTextColor(Color.DKGRAY)
+                  setPadding(4, 16, 4, 8)
+              }
+
+              private fun button(text: String, action: () -> Unit) = Button(this).apply {
+                  this.text = text
+                  textSize = 17f
+                  setTextColor(Color.WHITE)
+                  setBackgroundColor(blue)
+                  setPadding(12, 14, 12, 14)
+                  setOnClickListener { action() }
+              }
+
+              private fun showLogin() {
+                  val v = base()
+                  v.addView(title("PhysioVertex\nEmployee Login"))
+                  val id = EditText(this).apply { hint = "Employee ID"; setText("PV001") }
+                  val pass = EditText(this).apply {
+                      hint = "Password"
+                      inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+                  }
+                  v.addView(id)
+                  v.addView(pass)
+                  v.addView(label("Default login: PV001 / 1234"))
+                  v.addView(button("LOGIN") {
+                      if (id.text.toString().trim().equals("PV001", true) && pass.text.toString() == "1234") {
+                          prefs.edit().putString("employee", "PV001").apply()
+                          showDashboard()
+                      } else Toast.makeText(this, "Invalid Employee ID or Password", Toast.LENGTH_SHORT).show()
+                  })
+              }
+
+              private fun showDashboard() {
+                  val v = base()
+                  v.addView(title("PhysioVertex\nEmployee Dashboard"))
+                  v.addView(label("Employee ID: PV001"))
+                  v.addView(label("Today: ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())}"))
+
+                  val status = label("")
+                  fun refresh() {
+                      val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                      val inTime = prefs.getString("in_$date", null)
+                      val outTime = prefs.getString("out_$date", null)
+                      status.text = "Today's Attendance\nIN: ${inTime ?: "Not marked"}\nOUT: ${outTime ?: "Not marked"}"
+                  }
+                  v.addView(status)
+                  refresh()
+                  v.addView(button("MARK IN") {
+                      val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                      if (prefs.contains("in_$date")) Toast.makeText(this, "IN already marked", Toast.LENGTH_SHORT).show()
+                      else {
+                          val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+                          prefs.edit().putString("in_$date", time).apply(); refresh()
+                          Toast.makeText(this, "Attendance IN marked", Toast.LENGTH_SHORT).show()
+                      }
+                  })
+                  v.addView(space())
+                  v.addView(button("MARK OUT") {
+                      val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                      if (!prefs.contains("in_$date")) Toast.makeText(this, "Please mark IN first", Toast.LENGTH_SHORT).show()
+                      else {
+                          val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+                          prefs.edit().putString("out_$date", time).apply(); refresh()
+                          Toast.makeText(this, "Attendance OUT marked", Toast.LENGTH_SHORT).show()
+                      }
+                  })
+                  v.addView(space())
+                  v.addView(button("ATTENDANCE HISTORY") { showHistory() })
+                  v.addView(space())
+                  v.addView(button("SALARY DETAILS") { showSalary() })
+                  v.addView(space())
+                  v.addView(button("LOGOUT") { showLogin() })
+              }
+
+              private fun showHistory() {
+                  val v = base(); v.addView(title("Attendance History"))
+                  val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                  val display = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                  val cal = Calendar.getInstance()
+                  repeat(30) {
+                      val key = df.format(cal.time)
+                      val i = prefs.getString("in_$key", null)
+                      val o = prefs.getString("out_$key", null)
+                      if (i != null || o != null) v.addView(label("${display.format(cal.time)}\nIN: ${i ?: "-"}   OUT: ${o ?: "-"}"))
+                      cal.add(Calendar.DAY_OF_YEAR, -1)
+                  }
+                  v.addView(space()); v.addView(button("BACK TO DASHBOARD") { showDashboard() })
+              }
+
+              private fun showSalary() {
+                  val v = base(); v.addView(title("Salary Details"))
+                  v.addView(label("Employee: PV001"))
+                  v.addView(label("Salary information will be updated by clinic admin."))
+                  v.addView(label("Current Salary Status: Not updated"))
+                  v.addView(space()); v.addView(button("BACK TO DASHBOARD") { showDashboard() })
+              }
+
+              private fun space() = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 22) }
+          }
+          EOF
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -94,8 +226,6 @@ jobs:
         run: |
           set -e
           cd "${{ steps.project.outputs.project_dir }}"
-          java -version
-          gradle --version
           gradle assembleDebug --stacktrace --no-daemon
 
       - name: Find APK
@@ -104,25 +234,12 @@ jobs:
         run: |
           set -e
           APK_FILE=$(find "${{ steps.project.outputs.project_dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then
-            echo "ERROR: APK not found"
-            find "${{ steps.project.outputs.project_dir }}" -type f -name "*.apk" -print
-            exit 1
-          fi
-          echo "APK found: $APK_FILE"
+          test -n "$APK_FILE"
           echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-Debug-APK
+          name: PhysioVertex-Employee-v2
           path: ${{ steps.apk.outputs.apk_file }}
           if-no-files-found: error
-
-      - name: Build Summary
-        if: success()
-        run: |
-          echo "======================================"
-          echo "PhysioVertex APK BUILD SUCCESSFUL"
-          echo "======================================"
-          echo "APK: ${{ steps.apk.outputs.apk_file }}"
