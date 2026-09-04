@@ -19,45 +19,33 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.9'
+
       - name: Extract Android project
         run: |
-          mkdir -p android-project
+          rm -rf android-project
+          mkdir android-project
           unzip -o PhysioVertex_Final_Android_Project.zip -d android-project
 
-      - name: Find Gradle project
+      - name: Check Android project
         run: |
-          echo "Searching for Gradle project..."
-          find android-project -type f \( \
-            -name "gradlew" -o \
-            -name "settings.gradle" -o \
-            -name "settings.gradle.kts" \
-          \) -print
-
-      - name: Locate project directory
-        id: project
-        run: |
-          PROJECT_DIR=$(find android-project -type f -name "gradlew" -printf '%h\n' | head -1)
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: gradlew not found in ZIP"
-            echo "ZIP contents:"
-            unzip -l PhysioVertex_Final_Android_Project.zip
-            exit 1
-          fi
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-
-      - name: Make gradlew executable
-        run: chmod +x "${{ steps.project.outputs.PROJECT_DIR }}/gradlew"
+          echo "Project files:"
+          find android-project -maxdepth 3 -type f | sort
 
       - name: Build Debug APK
-        working-directory: ${{ steps.project.outputs.PROJECT_DIR }}
-        run: ./gradlew assembleDebug --stacktrace
+        working-directory: android-project
+        run: gradle assembleDebug --stacktrace
 
       - name: Find APK
         run: |
-          find "${{ steps.project.outputs.PROJECT_DIR }}" -type f -name "*.apk" -print
+          echo "APK files:"
+          find android-project -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-debug-apk
-          path: "**/build/outputs/apk/**/*.apk"
+          path: android-project/**/build/outputs/apk/**/*.apk
