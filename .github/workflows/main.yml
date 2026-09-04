@@ -25,28 +25,33 @@ jobs:
           mkdir -p android_project
           unzip -o *.zip -d android_project
 
-      - name: Find Gradle project
+      - name: Find Android project
         run: |
-          echo "Searching for gradlew..."
-          find android_project -name gradlew -type f
+          echo "Searching project files..."
+          find android_project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" -o -name "build.gradle" -o -name "build.gradle.kts" \) -print
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
       - name: Build APK
         run: |
-          GRADLEW=$(find android_project -name gradlew -type f | head -1)
-          if [ -z "$GRADLEW" ]; then
-            echo "ERROR: gradlew not found"
+          PROJECT_DIR=$(find android_project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -print -quit | xargs -r dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Android Gradle project not found"
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$GRADLEW")
           echo "Project directory: $PROJECT_DIR"
-
-          chmod +x "$GRADLEW"
           cd "$PROJECT_DIR"
-          ./gradlew assembleDebug
+
+          gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-APK
           path: android_project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
