@@ -2,7 +2,7 @@ name: Build PhysioVertex APK
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -18,54 +18,43 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Check ZIP
-        run: |
-          ls -lah
-          unzip -t PhysioVertex_Final_Android_Project.zip
+          cache: gradle
 
       - name: Extract Android project
         run: |
-          rm -rf android-project
-          mkdir android-project
-          unzip -q PhysioVertex_Final_Android_Project.zip -d android-project
+          mkdir -p android-project
+          unzip -o PhysioVertex_Final_Android_Project.zip -d android-project
           echo "Extracted files:"
-          find android-project -maxdepth 4 -type f | head -100
+          find android-project -maxdepth 3 -type f | head -100
 
-      - name: Find Android project
-        id: project
+      - name: Find Gradle project
+        id: find_project
         run: |
-          PROJECT_DIR=$(find android-project -type f \( \
-            -name "settings.gradle" -o \
-            -name "settings.gradle.kts" \
-          \) -print -quit | xargs -r dirname)
+          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/android-project" -name "gradlew" -type f -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Android Gradle project not found"
+            echo "ERROR: gradlew not found"
+            find android-project -maxdepth 5 -type f
             exit 1
           fi
 
-          echo "PROJECT_DIR=$PROJECT_DIR"
-          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project found at: $PROJECT_DIR"
+
+      - name: Make gradlew executable
+        run: chmod +x "$PROJECT_DIR/gradlew"
 
       - name: Build Debug APK
-        working-directory: ${{ steps.project.outputs.project_dir }}
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --no-daemon
-          else
-            echo "ERROR: gradlew not found"
-            exit 1
-          fi
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Find APK
         run: |
-          find android-project -type f -name "*.apk" -print
+          find "$PROJECT_DIR" -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-Debug-APK
-          path: android-project/**/build/outputs/apk/debug/*.apk
+          name: PhysioVertex-debug-apk
+          path: ${{ env.PROJECT_DIR }}/**/build/outputs/apk/**/*.apk
           if-no-files-found: error
