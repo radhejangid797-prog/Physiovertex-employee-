@@ -1,0 +1,2 @@
+PhysioVertex v4 development started.
+Planned: 50m attendance geofence, live selfie check-in/check-out, admin + employee dual role, up to 10 employees, working hours, salary and leave management.
