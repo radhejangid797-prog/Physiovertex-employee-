@@ -56,29 +56,38 @@ jobs:
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
           echo "Project: $PROJECT_DIR"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: Align Kotlin target with project Java target
+      - name: Force JVM 17 in Android module
         shell: bash
         run: |
           set -e
           PROJECT_DIR="${{ steps.project.outputs.project_dir }}"
+          APP_GRADLE="$PROJECT_DIR/app/build.gradle"
 
-          cat > "$PROJECT_DIR/jvm-fix.gradle" <<'EOF'
-          allprojects {
-              tasks.configureEach { task ->
-                  if (task.class.name == "org.jetbrains.kotlin.gradle.tasks.KotlinCompile") {
-                      task.kotlinOptions.jvmTarget = "1.8"
-                  }
+          if [ ! -f "$APP_GRADLE" ]; then
+            echo "ERROR: app/build.gradle not found"
+            exit 1
+          fi
+
+          cat >> "$APP_GRADLE" <<'EOF'
+
+          android {
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = '17'
               }
           }
           EOF
 
-          echo "Using JVM compatibility patch:"
-          cat "$PROJECT_DIR/jvm-fix.gradle"
+          echo "Patched app/build.gradle:"
+          cat "$APP_GRADLE"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Build Debug APK
         shell: bash
@@ -87,7 +96,7 @@ jobs:
           cd "${{ steps.project.outputs.project_dir }}"
           java -version
           gradle --version
-          gradle -I jvm-fix.gradle assembleDebug --stacktrace --no-daemon
+          gradle assembleDebug --stacktrace --no-daemon
 
       - name: Find APK
         id: apk
