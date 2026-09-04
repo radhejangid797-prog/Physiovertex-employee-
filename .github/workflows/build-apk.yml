@@ -48,7 +48,7 @@ jobs:
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Add employee attendance and salary app
+      - name: Add admin and employee management
         shell: bash
         run: |
           set -e
@@ -76,7 +76,6 @@ jobs:
           import android.graphics.Typeface
           import android.text.InputType
           import android.view.Gravity
-          import android.view.View
           import android.widget.*
           import java.text.SimpleDateFormat
           import java.util.*
@@ -85,10 +84,18 @@ jobs:
               private val blue = Color.rgb(24, 92, 180)
               private val prefs by lazy { getSharedPreferences("physiovertex", MODE_PRIVATE) }
               private lateinit var root: LinearLayout
+              private var currentEmployee = "PV001"
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
-                  showLogin()
+                  if (!prefs.contains("emp_PV001_pass")) {
+                      prefs.edit()
+                          .putString("emp_PV001_name", "Employee 1")
+                          .putString("emp_PV001_pass", "1234")
+                          .putString("emp_PV001_salary", "0")
+                          .apply()
+                  }
+                  showRoleScreen()
               }
 
               private fun base(): LinearLayout {
@@ -116,7 +123,12 @@ jobs:
                   this.text = text
                   textSize = 17f
                   setTextColor(Color.DKGRAY)
-                  setPadding(4, 16, 4, 8)
+                  setPadding(4, 14, 4, 8)
+              }
+
+              private fun edit(hintText: String, password: Boolean = false) = EditText(this).apply {
+                  hint = hintText
+                  if (password) inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
               }
 
               private fun button(text: String, action: () -> Unit) = Button(this).apply {
@@ -128,91 +140,165 @@ jobs:
                   setOnClickListener { action() }
               }
 
-              private fun showLogin() {
+              private fun space() = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 22) }
+
+              private fun showRoleScreen() {
                   val v = base()
-                  v.addView(title("PhysioVertex\nEmployee Login"))
-                  val id = EditText(this).apply { hint = "Employee ID"; setText("PV001") }
-                  val pass = EditText(this).apply {
-                      hint = "Password"
-                      inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                  }
-                  v.addView(id)
-                  v.addView(pass)
-                  v.addView(label("Default login: PV001 / 1234"))
-                  v.addView(button("LOGIN") {
-                      if (id.text.toString().trim().equals("PV001", true) && pass.text.toString() == "1234") {
-                          prefs.edit().putString("employee", "PV001").apply()
-                          showDashboard()
-                      } else Toast.makeText(this, "Invalid Employee ID or Password", Toast.LENGTH_SHORT).show()
-                  })
+                  v.addView(title("PhysioVertex"))
+                  v.addView(button("EMPLOYEE LOGIN") { showEmployeeLogin() })
+                  v.addView(space())
+                  v.addView(button("ADMIN LOGIN") { showAdminLogin() })
               }
 
-              private fun showDashboard() {
+              private fun showEmployeeLogin() {
                   val v = base()
-                  v.addView(title("PhysioVertex\nEmployee Dashboard"))
-                  v.addView(label("Employee ID: PV001"))
-                  v.addView(label("Today: ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date())}"))
+                  v.addView(title("Employee Login"))
+                  val id = edit("Employee ID")
+                  val pass = edit("Password", true)
+                  v.addView(id); v.addView(pass)
+                  v.addView(button("LOGIN") {
+                      val empId = id.text.toString().trim().uppercase(Locale.getDefault())
+                      val saved = prefs.getString("emp_${empId}_pass", null)
+                      if (saved != null && saved == pass.text.toString()) {
+                          currentEmployee = empId
+                          showEmployeeDashboard()
+                      } else Toast.makeText(this, "Invalid Employee ID or Password", Toast.LENGTH_SHORT).show()
+                  })
+                  v.addView(space()); v.addView(button("BACK") { showRoleScreen() })
+              }
 
+              private fun showAdminLogin() {
+                  val v = base()
+                  v.addView(title("Admin Login"))
+                  val id = edit("Admin ID")
+                  val pass = edit("Password", true)
+                  v.addView(id); v.addView(pass)
+                  v.addView(label("Default: ADMIN / 2468"))
+                  v.addView(button("LOGIN") {
+                      if (id.text.toString().trim().equals("ADMIN", true) && pass.text.toString() == "2468") showAdminDashboard()
+                      else Toast.makeText(this, "Invalid Admin Login", Toast.LENGTH_SHORT).show()
+                  })
+                  v.addView(space()); v.addView(button("BACK") { showRoleScreen() })
+              }
+
+              private fun showAdminDashboard() {
+                  val v = base()
+                  v.addView(title("Admin Dashboard"))
+                  v.addView(button("ADD / UPDATE EMPLOYEE") { showEmployeeEditor() })
+                  v.addView(space())
+                  v.addView(button("EMPLOYEE LIST") { showEmployeeList() })
+                  v.addView(space())
+                  v.addView(button("ATTENDANCE OVERVIEW") { showAdminAttendance() })
+                  v.addView(space())
+                  v.addView(button("LOGOUT") { showRoleScreen() })
+              }
+
+              private fun showEmployeeEditor() {
+                  val v = base(); v.addView(title("Add / Update Employee"))
+                  val id = edit("Employee ID e.g. PV002")
+                  val name = edit("Employee Name")
+                  val pass = edit("Password", true)
+                  val salary = edit("Monthly Salary")
+                  salary.inputType = InputType.TYPE_CLASS_NUMBER
+                  v.addView(id); v.addView(name); v.addView(pass); v.addView(salary)
+                  v.addView(button("SAVE EMPLOYEE") {
+                      val empId = id.text.toString().trim().uppercase(Locale.getDefault())
+                      if (empId.isBlank() || name.text.toString().isBlank() || pass.text.toString().isBlank()) {
+                          Toast.makeText(this, "ID, Name and Password required", Toast.LENGTH_SHORT).show()
+                      } else {
+                          prefs.edit()
+                              .putString("emp_${empId}_name", name.text.toString().trim())
+                              .putString("emp_${empId}_pass", pass.text.toString())
+                              .putString("emp_${empId}_salary", salary.text.toString().ifBlank { "0" })
+                              .apply()
+                          Toast.makeText(this, "Employee saved", Toast.LENGTH_SHORT).show()
+                          showAdminDashboard()
+                      }
+                  })
+                  v.addView(space()); v.addView(button("BACK") { showAdminDashboard() })
+              }
+
+              private fun employeeIds(): List<String> {
+                  return prefs.all.keys
+                      .filter { it.startsWith("emp_") && it.endsWith("_pass") }
+                      .map { it.removePrefix("emp_").removeSuffix("_pass") }
+                      .distinct().sorted()
+              }
+
+              private fun showEmployeeList() {
+                  val v = base(); v.addView(title("Employee List"))
+                  employeeIds().forEach { id ->
+                      val name = prefs.getString("emp_${id}_name", "")
+                      val salary = prefs.getString("emp_${id}_salary", "0")
+                      v.addView(label("$id - $name\nSalary: ₹$salary"))
+                  }
+                  v.addView(space()); v.addView(button("BACK") { showAdminDashboard() })
+              }
+
+              private fun showEmployeeDashboard() {
+                  val v = base()
+                  val name = prefs.getString("emp_${currentEmployee}_name", currentEmployee)
+                  v.addView(title("Employee Dashboard"))
+                  v.addView(label("$name ($currentEmployee)"))
+                  v.addView(label("Attendance radius: 300 metres"))
                   val status = label("")
                   fun refresh() {
                       val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                      val inTime = prefs.getString("in_$date", null)
-                      val outTime = prefs.getString("out_$date", null)
-                      status.text = "Today's Attendance\nIN: ${inTime ?: "Not marked"}\nOUT: ${outTime ?: "Not marked"}"
+                      val i = prefs.getString("in_${currentEmployee}_$date", null)
+                      val o = prefs.getString("out_${currentEmployee}_$date", null)
+                      status.text = "Today\nIN: ${i ?: "Not marked"}\nOUT: ${o ?: "Not marked"}"
                   }
-                  v.addView(status)
-                  refresh()
-                  v.addView(button("MARK IN") {
+                  v.addView(status); refresh()
+                  v.addView(button("CHECK IN") {
                       val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                      if (prefs.contains("in_$date")) Toast.makeText(this, "IN already marked", Toast.LENGTH_SHORT).show()
-                      else {
-                          val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
-                          prefs.edit().putString("in_$date", time).apply(); refresh()
-                          Toast.makeText(this, "Attendance IN marked", Toast.LENGTH_SHORT).show()
-                      }
+                      val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+                      prefs.edit().putString("in_${currentEmployee}_$date", time).apply(); refresh()
                   })
                   v.addView(space())
-                  v.addView(button("MARK OUT") {
+                  v.addView(button("CHECK OUT") {
                       val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                      if (!prefs.contains("in_$date")) Toast.makeText(this, "Please mark IN first", Toast.LENGTH_SHORT).show()
-                      else {
-                          val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
-                          prefs.edit().putString("out_$date", time).apply(); refresh()
-                          Toast.makeText(this, "Attendance OUT marked", Toast.LENGTH_SHORT).show()
-                      }
+                      val time = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
+                      prefs.edit().putString("out_${currentEmployee}_$date", time).apply(); refresh()
                   })
-                  v.addView(space())
-                  v.addView(button("ATTENDANCE HISTORY") { showHistory() })
-                  v.addView(space())
-                  v.addView(button("SALARY DETAILS") { showSalary() })
-                  v.addView(space())
-                  v.addView(button("LOGOUT") { showLogin() })
+                  v.addView(space()); v.addView(button("ATTENDANCE HISTORY") { showEmployeeHistory() })
+                  v.addView(space()); v.addView(button("SALARY DETAILS") { showSalary() })
+                  v.addView(space()); v.addView(button("LOGOUT") { showRoleScreen() })
               }
 
-              private fun showHistory() {
+              private fun showEmployeeHistory() {
                   val v = base(); v.addView(title("Attendance History"))
                   val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                   val display = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                   val cal = Calendar.getInstance()
                   repeat(30) {
                       val key = df.format(cal.time)
-                      val i = prefs.getString("in_$key", null)
-                      val o = prefs.getString("out_$key", null)
+                      val i = prefs.getString("in_${currentEmployee}_$key", null)
+                      val o = prefs.getString("out_${currentEmployee}_$key", null)
                       if (i != null || o != null) v.addView(label("${display.format(cal.time)}\nIN: ${i ?: "-"}   OUT: ${o ?: "-"}"))
                       cal.add(Calendar.DAY_OF_YEAR, -1)
                   }
-                  v.addView(space()); v.addView(button("BACK TO DASHBOARD") { showDashboard() })
+                  v.addView(space()); v.addView(button("BACK") { showEmployeeDashboard() })
               }
 
               private fun showSalary() {
                   val v = base(); v.addView(title("Salary Details"))
-                  v.addView(label("Employee: PV001"))
-                  v.addView(label("Salary information will be updated by clinic admin."))
-                  v.addView(label("Current Salary Status: Not updated"))
-                  v.addView(space()); v.addView(button("BACK TO DASHBOARD") { showDashboard() })
+                  val salary = prefs.getString("emp_${currentEmployee}_salary", "0")
+                  v.addView(label("Employee: $currentEmployee"))
+                  v.addView(label("Monthly Salary: ₹$salary"))
+                  v.addView(space()); v.addView(button("BACK") { showEmployeeDashboard() })
               }
 
-              private fun space() = Space(this).apply { layoutParams = LinearLayout.LayoutParams(1, 22) }
+              private fun showAdminAttendance() {
+                  val v = base(); v.addView(title("Attendance Overview"))
+                  val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                  employeeIds().forEach { id ->
+                      val name = prefs.getString("emp_${id}_name", "")
+                      val i = prefs.getString("in_${id}_$date", null)
+                      val o = prefs.getString("out_${id}_$date", null)
+                      v.addView(label("$id - $name\nIN: ${i ?: "-"}   OUT: ${o ?: "-"}"))
+                  }
+                  v.addView(space()); v.addView(button("BACK") { showAdminDashboard() })
+              }
           }
           EOF
 
@@ -240,6 +326,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-Employee-v2
+          name: PhysioVertex-Admin-v3
           path: ${{ steps.apk.outputs.apk_file }}
           if-no-files-found: error
