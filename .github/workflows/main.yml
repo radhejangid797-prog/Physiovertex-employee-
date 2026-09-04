@@ -12,18 +12,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Java 17
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      # 3. Find project ZIP
       - name: Find Android project ZIP
         id: zip
         shell: bash
@@ -34,7 +31,6 @@ jobs:
 
           if [ -z "$ZIP_FILE" ]; then
             echo "ERROR: Android project ZIP not found"
-            echo "Files in repository:"
             find . -maxdepth 3 -type f | sort
             exit 1
           fi
@@ -42,7 +38,6 @@ jobs:
           echo "Found ZIP: $ZIP_FILE"
           echo "zip_file=$ZIP_FILE" >> "$GITHUB_OUTPUT"
 
-      # 4. Extract Android project
       - name: Extract Android project
         shell: bash
         run: |
@@ -56,29 +51,30 @@ jobs:
           echo "Extracted files:"
           find android-project -maxdepth 4 -type f | sort
 
-      # 5. Find actual Gradle project
       - name: Find Gradle project
         id: project
         shell: bash
         run: |
           set -e
 
-          PROJECT_DIR=$(find android-project -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          SETTINGS_FILE=$(find android-project -type f \( \
+            -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \
+          \) | head -n 1)
 
-          if [ -z "$PROJECT_DIR" ]; then
+          if [ -z "$SETTINGS_FILE" ]; then
             echo "ERROR: settings.gradle not found"
             find android-project -maxdepth 5 -type f | sort
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$PROJECT_DIR")
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
 
           echo "Android project directory:"
           echo "$PROJECT_DIR"
 
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      # 6. Check Android project
       - name: Check Android project
         shell: bash
         run: |
@@ -90,41 +86,18 @@ jobs:
           pwd
 
           echo ""
-          echo "Project files:"
-          find . -maxdepth 3 -type f | sort
-
-          echo ""
           echo "Java version:"
           java -version
 
           echo ""
-          echo "Gradle files:"
-          ls -la
+          echo "Project files:"
+          find . -maxdepth 3 -type f | sort
 
-      # 7. Setup Gradle 8.9
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      # 8. Configure JVM 17
-      - name: Configure JVM 17
-        shell: bash
-        run: |
-          set -e
-
-          cd "${{ steps.project.outputs.project_dir }}"
-
-          cat >> gradle.properties <<'EOF'
-
-          org.gradle.java.home=${JAVA_HOME}
-          kotlin.jvm.target.validation.mode=warning
-          EOF
-
-          echo "gradle.properties:"
-          cat gradle.properties
-
-      # 9. Build Debug APK
       - name: Build Debug APK
         shell: bash
         run: |
@@ -132,14 +105,14 @@ jobs:
 
           cd "${{ steps.project.outputs.project_dir }}"
 
-          echo "Building with Gradle..."
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
           gradle --version
 
           gradle assembleDebug \
             --stacktrace \
             --no-daemon
 
-      # 10. Find APK
       - name: Find APK
         id: apk
         shell: bash
@@ -153,10 +126,12 @@ jobs:
 
           if [ -z "$APK_FILE" ]; then
             echo "ERROR: APK not found"
+
             find "${{ steps.project.outputs.project_dir }}" \
               -type f \
               -name "*.apk" \
               -print
+
             exit 1
           fi
 
@@ -165,7 +140,6 @@ jobs:
 
           echo "apk_file=$APK_FILE" >> "$GITHUB_OUTPUT"
 
-      # 11. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -173,16 +147,10 @@ jobs:
           path: ${{ steps.apk.outputs.apk_file }}
           if-no-files-found: error
 
-      # 12. Build summary
       - name: Build Summary
         if: success()
-        shell: bash
         run: |
           echo "======================================"
-          echo " PhysioVertex APK BUILD SUCCESSFUL"
+          echo "PhysioVertex APK BUILD SUCCESSFUL"
           echo "======================================"
-          echo ""
           echo "APK: ${{ steps.apk.outputs.apk_file }}"
-          echo ""
-          echo "Download the artifact:"
-          echo "PhysioVertex-Debug-APK"
