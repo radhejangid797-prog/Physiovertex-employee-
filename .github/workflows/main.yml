@@ -98,6 +98,84 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Fix JVM target compatibility
+        shell: bash
+        run: |
+          set -e
+
+          cd "${{ steps.project.outputs.project_dir }}"
+
+          APP_GRADLE_KTS="app/build.gradle.kts"
+          APP_GRADLE="app/build.gradle"
+
+          if [ -f "$APP_GRADLE_KTS" ]; then
+            echo "Found $APP_GRADLE_KTS"
+
+            if grep -q "sourceCompatibility = JavaVersion.VERSION_1_8" "$APP_GRADLE_KTS"; then
+              sed -i 's/sourceCompatibility = JavaVersion.VERSION_1_8/sourceCompatibility = JavaVersion.VERSION_17/g' "$APP_GRADLE_KTS"
+            fi
+
+            if grep -q "targetCompatibility = JavaVersion.VERSION_1_8" "$APP_GRADLE_KTS"; then
+              sed -i 's/targetCompatibility = JavaVersion.VERSION_1_8/targetCompatibility = JavaVersion.VERSION_17/g' "$APP_GRADLE_KTS"
+            fi
+
+            if grep -q 'jvmTarget = "1.8"' "$APP_GRADLE_KTS"; then
+              sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$APP_GRADLE_KTS"
+            fi
+
+            if ! grep -q "sourceCompatibility = JavaVersion.VERSION_17" "$APP_GRADLE_KTS"; then
+              sed -i '/android {/a\
+    compileOptions {\
+        sourceCompatibility = JavaVersion.VERSION_17\
+        targetCompatibility = JavaVersion.VERSION_17\
+    }\
+\
+    kotlinOptions {\
+        jvmTarget = "17"\
+    }' "$APP_GRADLE_KTS"
+            fi
+
+          elif [ -f "$APP_GRADLE" ]; then
+            echo "Found $APP_GRADLE"
+
+            if grep -q "sourceCompatibility JavaVersion.VERSION_1_8" "$APP_GRADLE"; then
+              sed -i 's/sourceCompatibility JavaVersion.VERSION_1_8/sourceCompatibility JavaVersion.VERSION_17/g' "$APP_GRADLE"
+            fi
+
+            if grep -q "targetCompatibility JavaVersion.VERSION_1_8" "$APP_GRADLE"; then
+              sed -i 's/targetCompatibility JavaVersion.VERSION_1_8/targetCompatibility JavaVersion.VERSION_17/g' "$APP_GRADLE"
+            fi
+
+            if grep -q "jvmTarget = '1.8'" "$APP_GRADLE"; then
+              sed -i "s/jvmTarget = '1.8'/jvmTarget = '17'/g" "$APP_GRADLE"
+            fi
+
+            if grep -q 'jvmTarget = "1.8"' "$APP_GRADLE"; then
+              sed -i 's/jvmTarget = "1.8"/jvmTarget = "17"/g' "$APP_GRADLE"
+            fi
+
+            if ! grep -q "sourceCompatibility JavaVersion.VERSION_17" "$APP_GRADLE"; then
+              sed -i '/android {/a\
+    compileOptions {\
+        sourceCompatibility JavaVersion.VERSION_17\
+        targetCompatibility JavaVersion.VERSION_17\
+    }\
+\
+    kotlinOptions {\
+        jvmTarget = "17"\
+    }' "$APP_GRADLE"
+            fi
+
+          else
+            echo "ERROR: app/build.gradle or app/build.gradle.kts not found"
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          echo ""
+          echo "Gradle configuration after JVM fix:"
+          cat app/build.gradle.kts 2>/dev/null || cat app/build.gradle
+
       - name: Build Debug APK
         shell: bash
         run: |
@@ -149,6 +227,7 @@ jobs:
 
       - name: Build Summary
         if: success()
+        shell: bash
         run: |
           echo "======================================"
           echo "PhysioVertex APK BUILD SUCCESSFUL"
