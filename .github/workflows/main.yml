@@ -2,7 +2,8 @@ name: Build PhysioVertex APK
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -18,23 +19,25 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Extract Android project
         run: |
           mkdir -p android-project
           unzip -o PhysioVertex_Final_Android_Project.zip -d android-project
-          echo "Extracted files:"
-          find android-project -maxdepth 3 -type f | head -100
+          echo "=== Extracted files ==="
+          find android-project -maxdepth 5 -type f | head -200
 
       - name: Find Gradle project
-        id: find_project
         run: |
-          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/android-project" -name "gradlew" -type f -print -quit | xargs -r dirname)
+          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/android-project" \
+            -name "gradlew" \
+            -type f \
+            -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "ERROR: gradlew not found"
-            find android-project -maxdepth 5 -type f
+            echo "=== All extracted files ==="
+            find android-project -maxdepth 8 -type f
             exit 1
           fi
 
@@ -50,6 +53,7 @@ jobs:
 
       - name: Find APK
         run: |
+          echo "=== APK files ==="
           find "$PROJECT_DIR" -type f -name "*.apk" -print
 
       - name: Upload APK
