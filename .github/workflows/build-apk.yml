@@ -30,7 +30,21 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
-          grep -q 'PHYSIOVERTEX' "$MAIN"
+          mkdir -p "$P/app/src/main/res/drawable"
+          python3 - <<'PY'
+          import urllib.request
+          from pathlib import Path
+          from urllib.parse import quote
+          base = 'https://physiovertex.in/imgaes/'
+          name = 'Screenshot 2025-11-30 at 5.42.01\u202fPM.png'
+          url = base + quote(name)
+          out = Path('${{ steps.project.outputs.dir }}') / 'app/src/main/res/drawable/physiovertex_logo.png'
+          urllib.request.urlretrieve(url, out)
+          if out.stat().st_size < 1000:
+              raise SystemExit('Logo download failed')
+          print('Official PhysioVertex website logo downloaded:', out.stat().st_size, 'bytes')
+          PY
+          grep -q 'physiovertex_logo' "$MAIN"
           grep -q 'Admin Dashboard' "$MAIN"
           grep -q 'Check In with Selfie' "$MAIN"
           grep -q 'Attendance Overview' "$MAIN"
@@ -44,11 +58,11 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-          echo "BRANDED V4.2 SOURCE VERIFIED"
+          echo "OFFICIAL WEBSITE BRAND SOURCE VERIFIED"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build Branded APK
+      - name: Build Website Brand APK
         shell: bash
         run: |
           set -e
@@ -63,6 +77,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-WEBSITE-STYLE
+          name: PhysioVertex-OFFICIAL-WEBSITE-BRAND
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
