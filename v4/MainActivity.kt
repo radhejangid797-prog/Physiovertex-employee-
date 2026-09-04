@@ -30,8 +30,8 @@ class MainActivity : Activity() {
  private fun title(t:String)=TextView(this).apply{text=t;textSize=25f;setTextColor(navy);setTypeface(null,Typeface.BOLD);gravity=Gravity.CENTER;setPadding(4,12,4,22)}
  private fun label(t:String)=TextView(this).apply{text=t;textSize=16f;setTextColor(ink);setPadding(22,18,22,18);background=bg(Color.WHITE,20f,Color.rgb(238,230,231))}
  private fun edit(h:String,p:Boolean=false)=EditText(this).apply{hint=h;textSize=16f;setTextColor(ink);setHintTextColor(Color.GRAY);setPadding(22,8,22,8);background=bg(Color.WHITE,18f,Color.rgb(231,222,224));if(p)inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD;layoutParams=LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,58).apply{setMargins(0,7,0,7)}}
- private fun btn(t:String,a:()->Unit)=Button(this).apply{text=t;textSize=15f;setTextColor(Color.WHITE);setTypeface(null,Typeface.BOLD);isAllCaps=false;background=bg(red,22f);minHeight=58;setPadding(14,8,14,8);setOnClickListener{a()}}
- private fun backBtn(t:String="Back",a:()->Unit)=Button(this).apply{text=t;textSize=15f;setTextColor(navy);setTypeface(null,Typeface.BOLD);isAllCaps=false;background=bg(Color.WHITE,22f,red);minHeight=54;setOnClickListener{a()}}
+ private fun btn(t:String,a:()->Unit)=Button(this).apply{text=t.uppercase(Locale.getDefault());textSize=15f;setTextColor(Color.WHITE);setTypeface(null,Typeface.BOLD);isAllCaps=true;background=bg(red,22f);minHeight=58;setPadding(14,8,14,8);setOnClickListener{a()}}
+ private fun backBtn(t:String="Back",a:()->Unit)=Button(this).apply{text=t.uppercase(Locale.getDefault());textSize=15f;setTextColor(navy);setTypeface(null,Typeface.BOLD);isAllCaps=true;background=bg(Color.WHITE,22f,red);minHeight=54;setOnClickListener{a()}}
  private fun sp(h:Int=18)=Space(this).apply{layoutParams=LinearLayout.LayoutParams(1,h)}
  private fun ids()=prefs.all.keys.filter{it.startsWith("emp_")&&it.endsWith("_pass")}.map{it.removePrefix("emp_").removeSuffix("_pass")}.distinct().sorted()
  private fun today()=SimpleDateFormat("yyyy-MM-dd",Locale.getDefault()).format(Date())
