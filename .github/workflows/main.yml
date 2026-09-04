@@ -2,8 +2,7 @@ name: Build PhysioVertex APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -24,41 +23,41 @@ jobs:
         run: |
           mkdir -p android-project
           unzip -o PhysioVertex_Final_Android_Project.zip -d android-project
-          echo "=== Extracted files ==="
-          find android-project -maxdepth 5 -type f | head -200
 
       - name: Find Gradle project
         run: |
-          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/android-project" \
-            -name "gradlew" \
-            -type f \
-            -print -quit | xargs -r dirname)
+          echo "Searching for Gradle project..."
+          find android-project -type f \( \
+            -name "gradlew" -o \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" \
+          \) -print
 
+      - name: Locate project directory
+        id: project
+        run: |
+          PROJECT_DIR=$(find android-project -type f -name "gradlew" -printf '%h\n' | head -1)
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: gradlew not found"
-            echo "=== All extracted files ==="
-            find android-project -maxdepth 8 -type f
+            echo "ERROR: gradlew not found in ZIP"
+            echo "ZIP contents:"
+            unzip -l PhysioVertex_Final_Android_Project.zip
             exit 1
           fi
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Android project found at: $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Make gradlew executable
-        run: chmod +x "$PROJECT_DIR/gradlew"
+        run: chmod +x "${{ steps.project.outputs.PROJECT_DIR }}/gradlew"
 
       - name: Build Debug APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: ./gradlew assembleDebug --no-daemon
+        working-directory: ${{ steps.project.outputs.PROJECT_DIR }}
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Find APK
         run: |
-          echo "=== APK files ==="
-          find "$PROJECT_DIR" -type f -name "*.apk" -print
+          find "${{ steps.project.outputs.PROJECT_DIR }}" -type f -name "*.apk" -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-debug-apk
-          path: ${{ env.PROJECT_DIR }}/**/build/outputs/apk/**/*.apk
-          if-no-files-found: error
+          path: "**/build/outputs/apk/**/*.apk"
