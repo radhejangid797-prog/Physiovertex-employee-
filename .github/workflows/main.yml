@@ -1,17 +1,18 @@
 name: Build PhysioVertex APK
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -19,84 +20,70 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+
+      - name: Show repository files
+        run: |
+          echo "Repository contents:"
+          find . -maxdepth 4 -type f | sort | head -300
 
       - name: Extract Android project
         shell: bash
         run: |
           set -e
 
-          mkdir -p android_project
-
-          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+          ZIP_FILE=$(find . -type f -name "*.zip" -print -quit)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No Android project ZIP file found."
-            echo "Files in repository:"
-            find . -maxdepth 3 -type f
+            echo "ERROR: No ZIP file found."
             exit 1
           fi
 
           echo "Found ZIP: $ZIP_FILE"
 
-          unzip -o "$ZIP_FILE" -d android_project
+          mkdir -p extracted
+          unzip -o "$ZIP_FILE" -d extracted
 
-          echo "Extraction complete."
+          echo "Extracted files:"
+          find extracted -maxdepth 6 -type f | sort | head -500
 
       - name: Find Android project
         shell: bash
         run: |
           set -e
 
-          PROJECT_DIR=$(find android_project -type f \
+          PROJECT_DIR=$(find extracted . \
+            -type f \
             \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            -printf '%h\n' | head -n 1)
+            -not -path "./.git/*" \
+            -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Android Gradle project not found."
-
-            echo "Searching extracted files:"
-            find android_project -maxdepth 5 -type f | head -200
-
+            echo "ERROR: Could not find settings.gradle or settings.gradle.kts"
+            echo "Searching for Gradle files:"
+            find . -type f \( -name "*.gradle" -o -name "*.gradle.kts" \) -print
             exit 1
           fi
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          PROJECT_DIR=$(realpath "$PROJECT_DIR")
 
-          echo "Android project found:"
+          echo "Android project found at:"
           echo "$PROJECT_DIR"
 
-      - name: Force JVM 17 compatibility
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Check Android project
         shell: bash
         run: |
           set -e
 
           cd "$PROJECT_DIR"
 
-          echo "Updating Gradle JVM settings..."
+          echo "Project directory:"
+          pwd
 
-          find . -type f \
-            \( -name "*.gradle" -o -name "*.gradle.kts" \) \
-            -print0 | while IFS= read -r -d '' file; do
-
-            echo "Checking $file"
-
-            sed -i \
-              -e 's/JavaVersion\.VERSION_1_8/JavaVersion.VERSION_17/g' \
-              -e 's/JavaVersion\.VERSION_8/JavaVersion.VERSION_17/g' \
-              -e 's/sourceCompatibility[[:space:]]*=[[:space:]]*["'\'']1\.8["'\'']/sourceCompatibility = JavaVersion.VERSION_17/g' \
-              -e 's/targetCompatibility[[:space:]]*=[[:space:]]*["'\'']1\.8["'\'']/targetCompatibility = JavaVersion.VERSION_17/g' \
-              -e 's/jvmTarget[[:space:]]*=[[:space:]]*["'\'']1\.8["'\'']/jvmTarget = "17"/g' \
-              -e 's/jvmTarget[[:space:]]*=[[:space:]]*["'\'']8["'\'']/jvmTarget = "17"/g' \
-              "$file" || true
-
-          done
-
-          echo "JVM configuration:"
-          grep -RniE \
-            "sourceCompatibility|targetCompatibility|jvmTarget" \
-            --include="*.gradle" \
-            --include="*.gradle.kts" \
-            . || true
+          echo "Project files:"
+          find . -maxdepth 3 -type f | sort
 
       - name: Create Gradle properties
         shell: bash
@@ -105,16 +92,52 @@ jobs:
 
           touch gradle.properties
 
-          if ! grep -q "org.gradle.jvmargs" gradle.properties; then
-            echo "org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8" >> gradle.properties
+          cat >> gradle.properties <<'EOF'
+
+          # PhysioVertex CI configuration
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.enableJetifier=true
+          android.suppressUnsupportedCompileSdk=35
+          EOF
+
+      - name: Install Gradle 8.7
+        shell: bash
+        run: |
+          if [ ! -d "$HOME/gradle-8.7" ]; then
+            wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip
+            unzip -q gradle-8.7-bin.zip -d "$HOME"
           fi
 
-          if ! grep -q "android.suppressUnsupportedCompileSdk" gradle.properties; then
-            echo "android.suppressUnsupportedCompileSdk=35" >> gradle.properties
-          fi
+          echo "$HOME/gradle-8.7/bin" >> "$GITHUB_PATH"
 
-          echo "gradle.properties:"
-          cat gradle.properties
+          gradle --version
+
+      - name: Force Java and Kotlin JVM 17
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+
+          cat > ci.gradle <<'EOF'
+          import org.gradle.api.tasks.compile.JavaCompile
+
+          allprojects {
+              tasks.withType(JavaCompile).configureEach {
+                  options.release.set(17)
+              }
+
+              tasks.configureEach {
+                  if (name.toLowerCase().contains("kotlin")) {
+                      try {
+                          if (hasProperty("kotlinOptions")) {
+                              kotlinOptions.jvmTarget = "17"
+                          }
+                      } catch (Exception ignored) {
+                      }
+                  }
+              }
+          }
+          EOF
 
       - name: Build Debug APK
         shell: bash
@@ -123,40 +146,59 @@ jobs:
 
           cd "$PROJECT_DIR"
 
-          echo "Java version:"
-          java -version
-
-          echo "Building APK..."
+          echo "Building project in:"
+          pwd
 
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-
-            ./gradlew clean assembleDebug \
+            ./gradlew \
               --no-daemon \
-              --stacktrace
+              --stacktrace \
+              -Pandroid.suppressUnsupportedCompileSdk=35 \
+              assembleDebug
           else
-            echo "Gradle wrapper not found."
-
-            gradle clean assembleDebug \
+            gradle \
               --no-daemon \
-              --stacktrace
+              --stacktrace \
+              --init-script ci.gradle \
+              -Pandroid.suppressUnsupportedCompileSdk=35 \
+              assembleDebug
           fi
 
       - name: Find APK
         shell: bash
         run: |
-          echo "Searching for APK files..."
+          set -e
 
-          find "$PROJECT_DIR" \
+          echo "Searching for APK..."
+
+          APK=$(find "$PROJECT_DIR" \
             -type f \
-            -name "*.apk" \
-            -print
+            -path "*/build/outputs/apk/*.apk" \
+            -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: APK was not created."
+            echo "Build output:"
+            find "$PROJECT_DIR" -type f | grep -E '\.apk$|build/outputs' || true
+            exit 1
+          fi
+
+          echo "APK found:"
+          echo "$APK"
+
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-APK
-          path: |
-            ${{ env.PROJECT_DIR }}/**/build/outputs/apk/**/*.apk
-            ${{ env.PROJECT_DIR }}/**/build/outputs/apk/*.apk
+          name: PhysioVertex-Debug-APK
+          path: ${{ env.APK_PATH }}
           if-no-files-found: error
+
+      - name: Build completed
+        run: |
+          echo "======================================"
+          echo " PhysioVertex APK BUILD SUCCESSFUL"
+          echo "======================================"
+          echo "APK uploaded as: PhysioVertex-Debug-APK"
