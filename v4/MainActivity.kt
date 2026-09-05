@@ -16,6 +16,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity : Activity() {
+    // Employee Records: legacy build verification token
     private val navy = Color.rgb(19,42,76)
     private val blue = Color.rgb(36,105,181)
     private val pale = Color.rgb(244,248,253)
@@ -29,13 +30,14 @@ class MainActivity : Activity() {
         super.onCreate(b)
         if (!prefs.contains("emp_PV001_pass")) {
             prefs.edit()
-                .putString("emp_PV001_name", "Employee 1")
+                .putString("emp_PV001_name", "Physio 1")
                 .putString("emp_PV001_pass", "1234")
                 .putString("emp_PV001_salary", "0")
                 .putString("emp_PV001_joined", today())
                 .putString("salaryhist_PV001_${System.currentTimeMillis()}", "${today()}|0")
                 .apply()
         }
+        if (prefs.getString("emp_PV001_name", "") == "Employee 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()
         role()
     }
 
@@ -54,31 +56,31 @@ class MainActivity : Activity() {
     private fun archivedIds()=prefs.all.keys.filter{it.startsWith("archived_")&&it.endsWith("_name")}.map{it.removePrefix("archived_").removeSuffix("_name")}.distinct().sorted()
     private fun recordIds()=(ids()+archivedIds()).distinct().sorted()
 
-    private fun role(){val v=base(true);brand(v,"Employee Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Employee Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()})}
-    private fun empLogin(){val v=base(true);brand(v,"Employee Portal");v.addView(title("Employee Login"));val id=edit("Employee ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}
+    private fun role(){val v=base(true);brand(v,"Physio Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Physio Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()})}
+    private fun empLogin(){val v=base(true);brand(v,"Physio Portal");v.addView(title("Physio Login"));val id=edit("Physio ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}
     private fun adminLogin(){val v=base(true);brand(v,"Administration");v.addView(title("Admin Login"));val id=edit("Admin ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){if(id.text.toString().trim().equals("ADMIN",true)&&p.text.toString()=="2468")adminDash()else Toast.makeText(this,"Invalid Admin Login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}
 
     private fun adminDash(){
         val v=base();brand(v,"PhysioVertex Team Portal");v.addView(title("Admin Dashboard"))
-        v.addView(menu("My Employee Dashboard","Personal attendance & employee view"){currentEmployee="PV001";empDash()});v.addView(sp(12))
-        v.addView(menu("Add / Update Employee","Create and manage staff profiles"){editor()});v.addView(sp(12))
-        v.addView(menu("Employee Records","Admin-only salary, work and service history"){employeeRecords()});v.addView(sp(12))
-        v.addView(menu("Employee List / Delete","View your complete staff directory"){empList()});v.addView(sp(12))
+        v.addView(menu("My Physio Dashboard","Personal attendance & physio view"){currentEmployee="PV001";empDash()});v.addView(sp(12))
+        v.addView(menu("Add / Update Physio","Create and manage staff profiles"){editor()});v.addView(sp(12))
+        v.addView(menu("Physio Records","Admin-only salary, work and service history"){employeeRecords()});v.addView(sp(12))
+        v.addView(menu("Physio List / Delete","View your complete staff directory"){empList()});v.addView(sp(12))
         v.addView(menu("Attendance Overview","Today’s check-in, check-out & selfies"){attendance()});v.addView(sp(12))
-        v.addView(menu("Leave Requests","Review pending employee requests"){adminLeaves()});v.addView(sp(20))
+        v.addView(menu("Leave Requests","Review pending physio requests"){adminLeaves()});v.addView(sp(20))
         v.addView(backBtn("Logout"){role()})
     }
 
-    private fun empDash(){val v=base();brand(v,"Employee Attendance");val name=prefs.getString("emp_${currentEmployee}_name",currentEmployee)?:currentEmployee;v.addView(title("Welcome, $name"));val d=today();val i=prefs.getString("in_${currentEmployee}_$d",null);val o=prefs.getString("out_${currentEmployee}_$d",null);v.addView(label("EMPLOYEE ID  •  $currentEmployee\n\nTODAY'S ATTENDANCE\nCheck-In   ${i?:"Not marked"}\nCheck-Out  ${o?:"Not marked"}"));v.addView(sp(14));v.addView(btn("Check In with Selfie"){if(i!=null)Toast.makeText(this,"Already checked in",Toast.LENGTH_SHORT).show()else camera("IN")});v.addView(sp(10));v.addView(btn("Check Out with Selfie"){if(i==null)Toast.makeText(this,"Check in first",Toast.LENGTH_SHORT).show()else if(o!=null)Toast.makeText(this,"Already checked out",Toast.LENGTH_SHORT).show()else camera("OUT")});v.addView(sp(18));v.addView(menu("Attendance History","View your last 30 days attendance"){history()});v.addView(sp(10));v.addView(menu("Salary Details","View monthly salary information"){salary()});v.addView(sp(10));v.addView(menu("Leave Request","Submit a new leave request"){leave()});v.addView(sp(20));v.addView(backBtn("Logout"){role()})}
+    private fun empDash(){val v=base();brand(v,"Physio Attendance");val name=prefs.getString("emp_${currentEmployee}_name",currentEmployee)?:currentEmployee;v.addView(title("Welcome, $name"));val d=today();val i=prefs.getString("in_${currentEmployee}_$d",null);val o=prefs.getString("out_${currentEmployee}_$d",null);v.addView(label("PHYSIO ID  •  $currentEmployee\n\nTODAY'S ATTENDANCE\nCheck-In   ${i?:"Not marked"}\nCheck-Out  ${o?:"Not marked"}"));v.addView(sp(14));v.addView(btn("Check In with Selfie"){if(i!=null)Toast.makeText(this,"Already checked in",Toast.LENGTH_SHORT).show()else camera("IN")});v.addView(sp(10));v.addView(btn("Check Out with Selfie"){if(i==null)Toast.makeText(this,"Check in first",Toast.LENGTH_SHORT).show()else if(o!=null)Toast.makeText(this,"Already checked out",Toast.LENGTH_SHORT).show()else camera("OUT")});v.addView(sp(18));v.addView(menu("Attendance History","View your last 30 days attendance"){history()});v.addView(sp(10));v.addView(menu("Salary Details","View monthly salary information"){salary()});v.addView(sp(10));v.addView(menu("Leave Request","Submit a new leave request"){leave()});v.addView(sp(20));v.addView(backBtn("Logout"){role()})}
 
     private fun editor(){
-        val v=base();brand(v,"Staff Management");v.addView(title("Add / Update Employee"))
-        val id=edit("Employee ID e.g. PV002");val n=edit("Employee Name");val p=edit("Password",true);val sal=edit("Monthly Salary");sal.inputType=InputType.TYPE_CLASS_NUMBER
+        val v=base();brand(v,"Staff Management");v.addView(title("Add / Update Physio"))
+        val id=edit("Physio ID e.g. PV002");val n=edit("Physio Name");val p=edit("Password",true);val sal=edit("Monthly Salary");sal.inputType=InputType.TYPE_CLASS_NUMBER
         v.addView(id);v.addView(n);v.addView(p);v.addView(sal);v.addView(sp())
-        v.addView(btn("Save Employee"){
+        v.addView(btn("Save Physio"){
             val e=id.text.toString().trim().uppercase();val name=n.text.toString().trim();val pass=p.text.toString();val newSalary=sal.text.toString().ifBlank{"0"}
             if(e.isBlank()||name.isBlank()||pass.isBlank()) Toast.makeText(this,"ID, Name and Password required",Toast.LENGTH_SHORT).show()
-            else if(!prefs.contains("emp_${e}_pass")&&ids().size>=10) Toast.makeText(this,"Maximum 10 employees allowed",Toast.LENGTH_SHORT).show()
+            else if(!prefs.contains("emp_${e}_pass")&&ids().size>=10) Toast.makeText(this,"Maximum 10 physios allowed",Toast.LENGTH_SHORT).show()
             else {
                 val oldSalary=prefs.getString("emp_${e}_salary",null)
                 val ed=prefs.edit().putString("emp_${e}_name",name).putString("emp_${e}_pass",pass).putString("emp_${e}_salary",newSalary)
@@ -103,12 +105,12 @@ class MainActivity : Activity() {
             .apply()
     }
 
-    private fun empList(){val v=base();brand(v,"Staff Directory");v.addView(title("Employee List"));ids().forEach{id->v.addView(label("$id  •  ${prefs.getString("emp_${id}_name","")}\nMonthly Salary: ₹${prefs.getString("emp_${id}_salary","0")}"));v.addView(sp(10));if(id!="PV001"){v.addView(backBtn("Archive $id"){archiveEmployee(id);empList()});v.addView(sp())}};v.addView(backBtn{adminDash()})}
+    private fun empList(){val v=base();brand(v,"Staff Directory");v.addView(title("Physio List"));ids().forEach{id->v.addView(label("$id  •  ${prefs.getString("emp_${id}_name","")}\nMonthly Salary: ₹${prefs.getString("emp_${id}_salary","0")}"));v.addView(sp(10));if(id!="PV001"){v.addView(backBtn("Archive $id"){archiveEmployee(id);empList()});v.addView(sp())}};v.addView(backBtn{adminDash()})}
 
     private fun employeeRecords(){
-        val v=base();brand(v,"Private Admin Records");v.addView(title("Employee Records"))
+        val v=base();brand(v,"Private Admin Records");v.addView(title("Physio Records"))
         val all=recordIds()
-        if(all.isEmpty()) v.addView(label("No employee records"))
+        if(all.isEmpty()) v.addView(label("No physio records"))
         all.forEach{id->
             val active=prefs.contains("emp_${id}_pass")
             val name=if(active) prefs.getString("emp_${id}_name",id) else prefs.getString("archived_${id}_name",id)
@@ -120,7 +122,7 @@ class MainActivity : Activity() {
     }
 
     private fun employeeRecord(id:String){
-        val v=base();brand(v,"Admin Only Employee Record")
+        val v=base();brand(v,"Admin Only Physio Record")
         val active=prefs.contains("emp_${id}_pass")
         val name=(if(active)prefs.getString("emp_${id}_name",id) else prefs.getString("archived_${id}_name",id))?:id
         val salary=(if(active)prefs.getString("emp_${id}_salary","0") else prefs.getString("archived_${id}_salary","0"))?:"0"
@@ -141,7 +143,7 @@ class MainActivity : Activity() {
         val rejected=leaveKeys.count{(prefs.getString(it,"")?:"").endsWith("|REJECTED")}
 
         v.addView(title(name))
-        v.addView(label("EMPLOYEE ID: $id\nSTATUS: ${if(active)"ACTIVE" else "ARCHIVED"}\nJOINED: ${joined.ifBlank{"Not recorded"}}\nLEFT: $left\n\nCURRENT / LAST SALARY: ₹$salary\n\nATTENDANCE DAYS: $days\nTOTAL WORKED: ${totalMinutes/60}h ${totalMinutes%60}m\n\nLEAVES — Approved: $approved  Pending: $pending  Rejected: $rejected"))
+        v.addView(label("PHYSIO ID: $id\nSTATUS: ${if(active)"ACTIVE" else "ARCHIVED"}\nJOINED: ${joined.ifBlank{"Not recorded"}}\nLEFT: $left\n\nCURRENT / LAST SALARY: ₹$salary\n\nATTENDANCE DAYS: $days\nTOTAL WORKED: ${totalMinutes/60}h ${totalMinutes%60}m\n\nLEAVES — Approved: $approved  Pending: $pending  Rejected: $rejected"))
         v.addView(sp(14))
 
         v.addView(title("Salary History"))
@@ -169,9 +171,9 @@ class MainActivity : Activity() {
     override fun onActivityResult(req:Int,res:Int,data:Intent?){super.onActivityResult(req,res,data);if(res!=RESULT_OK)return;val bmp=data?.extras?.get("data") as? Bitmap?:return;val type=if(req==501)"IN" else if(req==502)"OUT" else return;val d=today();val f=File(filesDir,"selfie_${currentEmployee}_${d}_${type}.jpg");FileOutputStream(f).use{bmp.compress(Bitmap.CompressFormat.JPEG,90,it)};val t=SimpleDateFormat("hh:mm a",Locale.getDefault()).format(Date());val e=prefs.edit().putString("selfie_${type.lowercase()}_${currentEmployee}_$d",f.absolutePath);if(type=="IN")e.putString("in_${currentEmployee}_$d",t).putLong("inms_${currentEmployee}_$d",System.currentTimeMillis())else e.putString("out_${currentEmployee}_$d",t).putLong("outms_${currentEmployee}_$d",System.currentTimeMillis());e.apply();empDash()}
     private fun image(p:String?):ImageView?{if(p.isNullOrBlank()||!File(p).exists())return null;return ImageView(this).apply{setImageBitmap(BitmapFactory.decodeFile(p));adjustViewBounds=true;maxHeight=450}}
     private fun attendance(){val v=base();brand(v,"Attendance Control");v.addView(title("Attendance Overview"));val d=today();ids().forEach{id->val im=prefs.getLong("inms_${id}_$d",0);val om=prefs.getLong("outms_${id}_$d",0);val w=if(im>0&&om>=im){val m=(om-im)/60000;"${m/60}h ${m%60}m"}else "-";v.addView(label("$id  •  ${prefs.getString("emp_${id}_name","")}\nIN: ${prefs.getString("in_${id}_$d",null)?:"-"}   OUT: ${prefs.getString("out_${id}_$d",null)?:"-"}\nWorked: $w"));image(prefs.getString("selfie_in_${id}_$d",null))?.let{v.addView(it)};image(prefs.getString("selfie_out_${id}_$d",null))?.let{v.addView(it)};v.addView(sp())};v.addView(backBtn{adminDash()})}
-    private fun leave(){val v=base();brand(v,"Employee Leave");v.addView(title("Leave Request"));val d=edit("Leave date");val r=edit("Reason");v.addView(d);v.addView(r);v.addView(sp());v.addView(btn("Submit Request"){if(d.text.isBlank()||r.text.isBlank())Toast.makeText(this,"Date and reason required",Toast.LENGTH_SHORT).show()else{prefs.edit().putString("leave_${currentEmployee}_${System.currentTimeMillis()}","${d.text}|${r.text}|PENDING").apply();empDash()}});v.addView(sp());v.addView(backBtn{empDash()})}
+    private fun leave(){val v=base();brand(v,"Physio Leave");v.addView(title("Leave Request"));val d=edit("Leave date");val r=edit("Reason");v.addView(d);v.addView(r);v.addView(sp());v.addView(btn("Submit Request"){if(d.text.isBlank()||r.text.isBlank())Toast.makeText(this,"Date and reason required",Toast.LENGTH_SHORT).show()else{prefs.edit().putString("leave_${currentEmployee}_${System.currentTimeMillis()}","${d.text}|${r.text}|PENDING").apply();empDash()}});v.addView(sp());v.addView(backBtn{empDash()})}
     private fun leaves()=prefs.all.keys.filter{it.startsWith("leave_")}.sortedDescending()
     private fun adminLeaves(){val v=base();brand(v,"Leave Management");v.addView(title("Leave Requests"));if(leaves().isEmpty())v.addView(label("No leave requests"));leaves().forEach{k->val p=(prefs.getString(k,"")?:"").split("|");val id=k.removePrefix("leave_").substringBefore("_");val d=p.getOrElse(0){""};val r=p.getOrElse(1){""};val st=p.getOrElse(2){"PENDING"};val name=prefs.getString("emp_${id}_name",null)?:prefs.getString("archived_${id}_name",id);v.addView(label("$id • $name\nDate: $d\nReason: $r\nStatus: $st"));if(st=="PENDING"){v.addView(sp(8));v.addView(btn("Approve"){prefs.edit().putString(k,"$d|$r|APPROVED").apply();adminLeaves()});v.addView(sp(8));v.addView(backBtn("Reject"){prefs.edit().putString(k,"$d|$r|REJECTED").apply();adminLeaves()})};v.addView(sp())};v.addView(backBtn{adminDash()})}
     private fun history(){val v=base();brand(v,"Attendance Records");v.addView(title("Attendance History"));val df=SimpleDateFormat("yyyy-MM-dd",Locale.getDefault());val c=Calendar.getInstance();repeat(30){val k=df.format(c.time);val i=prefs.getString("in_${currentEmployee}_$k",null);val o=prefs.getString("out_${currentEmployee}_$k",null);if(i!=null||o!=null){v.addView(label("$k\nIN: ${i?:"-"}   OUT: ${o?:"-"}"));v.addView(sp(10))};c.add(Calendar.DAY_OF_YEAR,-1)};v.addView(backBtn{empDash()})}
-    private fun salary(){val v=base();brand(v,"Employee Payroll");v.addView(title("Salary Details"));v.addView(label("Employee: ${prefs.getString("emp_${currentEmployee}_name",currentEmployee)}\nID: $currentEmployee\nMonthly Salary: ₹${prefs.getString("emp_${currentEmployee}_salary","0")}"));v.addView(sp());v.addView(backBtn{empDash()})}
+    private fun salary(){val v=base();brand(v,"Physio Payroll");v.addView(title("Salary Details"));v.addView(label("Physio: ${prefs.getString("emp_${currentEmployee}_name",currentEmployee)}\nID: $currentEmployee\nMonthly Salary: ₹${prefs.getString("emp_${currentEmployee}_salary","0")}"));v.addView(sp());v.addView(backBtn{empDash()})}
 }
