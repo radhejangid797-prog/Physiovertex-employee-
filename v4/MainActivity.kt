@@ -37,6 +37,7 @@ class MainActivity : Activity() {
                 .putString("salaryhist_PV001_${System.currentTimeMillis()}", "${today()}|0")
                 .apply()
         }
+        if (prefs.getString("emp_PV001_name", "") == "Physio 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()
         if (prefs.getString("emp_PV001_name", "") == "Employee 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()
         role()
     }
