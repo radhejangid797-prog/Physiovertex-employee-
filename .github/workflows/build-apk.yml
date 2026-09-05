@@ -47,6 +47,10 @@ jobs:
           bad='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}'
           good='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}'
           s=s.replace(bad,good)
+          old='Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()'
+          new='android.app.AlertDialog.Builder(this).setTitle("Physio Approved").setMessage("Profile approved successfully.\\n\\nPhysio ID: $id\\n\\nUse this ID with the password created during registration to login.").setCancelable(false).setPositiveButton("Back to Admin"){_,_->adminDash()}.show()'
+          s=s.replace(old,new)
+          if 'Physio Approved' not in s: raise SystemExit('Approval screen patch failed')
           open(p,'w',encoding='utf-8').write(s)
           PY
           mkdir -p "$P/app/src/main/res/drawable"
