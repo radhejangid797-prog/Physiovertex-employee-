@@ -1,4 +1,4 @@
-name: Apply Physio wording
+name: Apply Physio profile
 
 on:
   push:
@@ -9,57 +9,60 @@ permissions:
   contents: write
 
 jobs:
-  rename:
-    if: ${{ !contains(github.event.head_commit.message, '[rename-physio-done]') }}
+  profile:
+    if: ${{ !contains(github.event.head_commit.message, '[profile-done]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rename visible Employee wording to Physio
+      - name: Add My Profile to Physio panel
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('v4/MainActivity.kt')
           s=p.read_text(encoding='utf-8')
-          replacements={
-            '"Employee 1"':'"Physio 1"',
-            '"Employee Attendance & Management"':'"Physio Attendance & Management"',
-            '"Employee Login"':'"Physio Login"',
-            '"Employee Portal"':'"Physio Portal"',
-            '"Employee ID"':'"Physio ID"',
-            '"My Employee Dashboard"':'"My Physio Dashboard"',
-            '"Personal attendance & employee view"':'"Personal attendance & physio view"',
-            '"Add / Update Employee"':'"Add / Update Physio"',
-            '"Employee Records"':'"Physio Records"',
-            '"Employee List / Delete"':'"Physio List / Delete"',
-            '"Review pending employee requests"':'"Review pending physio requests"',
-            '"Employee Attendance"':'"Physio Attendance"',
-            '"EMPLOYEE ID  •  $currentEmployee':'"PHYSIO ID  •  $currentEmployee',
-            '"Employee ID e.g. PV002"':'"Physio ID e.g. PV002"',
-            '"Employee Name"':'"Physio Name"',
-            '"Save Employee"':'"Save Physio"',
-            '"Maximum 10 employees allowed"':'"Maximum 10 physios allowed"',
-            '"Employee List"':'"Physio List"',
-            '"No employee records"':'"No physio records"',
-            '"Admin Only Employee Record"':'"Admin Only Physio Record"',
-            '"EMPLOYEE ID: $id':'"PHYSIO ID: $id',
-            '"Employee Leave"':'"Physio Leave"',
-            '"Employee Payroll"':'"Physio Payroll"',
-            '"Employee: ${prefs.getString':'"Physio: ${prefs.getString'
-          }
-          for a,b in replacements.items(): s=s.replace(a,b)
-          marker='        role()\n'
-          migration='        if (prefs.getString("emp_PV001_name", "") == "Employee 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()\n        role()\n'
-          if '== "Employee 1"' not in s: s=s.replace(marker,migration,1)
-          # Keep old build verification token internal only; it is never shown in the app.
-          if '// Employee Records' not in s: s=s.replace('class MainActivity : Activity() {','class MainActivity : Activity() {\n    // Employee Records: legacy build verification token',1)
+          if 'menu("My Profile"' not in s:
+              old='v.addView(menu("Attendance History","View your last 30 days attendance"){history()});v.addView(sp(10));'
+              new='v.addView(menu("My Profile","Create and update your personal profile"){myProfile()});v.addView(sp(10));'+old
+              if old not in s: raise SystemExit('Physio dashboard insertion point not found')
+              s=s.replace(old,new,1)
+          if 'private fun myProfile()' not in s:
+              marker='    private fun editor(){\n'
+              fn='''    private fun myProfile(){
+        val v=base();brand(v,"Physio Profile");v.addView(title("My Profile"))
+        val photoPath=prefs.getString("profile_${currentEmployee}_photo",null)
+        image(photoPath)?.let{v.addView(it);v.addView(sp(10))}
+        v.addView(label("PHYSIO ID: $currentEmployee"));v.addView(sp(10))
+        val n=edit("Full Name");n.setText(prefs.getString("profile_${currentEmployee}_name",prefs.getString("emp_${currentEmployee}_name","")))
+        val m=edit("Mobile Number");m.inputType=InputType.TYPE_CLASS_PHONE;m.setText(prefs.getString("profile_${currentEmployee}_mobile",""))
+        val e=edit("Email");e.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS;e.setText(prefs.getString("profile_${currentEmployee}_email",""))
+        val q=edit("Qualification");q.setText(prefs.getString("profile_${currentEmployee}_qualification",""))
+        val a=edit("Address");a.setText(prefs.getString("profile_${currentEmployee}_address",""))
+        v.addView(n);v.addView(m);v.addView(e);v.addView(q);v.addView(a);v.addView(sp(12))
+        v.addView(btn("Take Profile Photo"){camera("PROFILE")});v.addView(sp(10))
+        v.addView(btn("Save Profile"){
+            val name=n.text.toString().trim()
+            if(name.isBlank()) Toast.makeText(this,"Name required",Toast.LENGTH_SHORT).show()
+            else {prefs.edit().putString("profile_${currentEmployee}_name",name).putString("profile_${currentEmployee}_mobile",m.text.toString().trim()).putString("profile_${currentEmployee}_email",e.text.toString().trim()).putString("profile_${currentEmployee}_qualification",q.text.toString().trim()).putString("profile_${currentEmployee}_address",a.text.toString().trim()).putString("emp_${currentEmployee}_name",name).apply();Toast.makeText(this,"Profile saved",Toast.LENGTH_SHORT).show();empDash()}
+        });v.addView(sp());v.addView(backBtn{empDash()})
+    }
+
+'''
+              if marker not in s: raise SystemExit('Profile function insertion point not found')
+              s=s.replace(marker,fn+marker,1)
+          old='startActivityForResult(x,if(type=="IN")501 else 502)'
+          new='startActivityForResult(x,if(type=="IN")501 else if(type=="OUT")502 else 503)'
+          s=s.replace(old,new)
+          old2='val type=if(req==501)"IN" else if(req==502)"OUT" else return;val d=today();'
+          new2='if(req==503){val f=File(filesDir,"profile_${currentEmployee}.jpg");FileOutputStream(f).use{bmp.compress(Bitmap.CompressFormat.JPEG,90,it)};prefs.edit().putString("profile_${currentEmployee}_photo",f.absolutePath).apply();myProfile();return};val type=if(req==501)"IN" else if(req==502)"OUT" else return;val d=today();'
+          if old2 not in s and 'if(req==503)' not in s: raise SystemExit('Camera result insertion point not found')
+          s=s.replace(old2,new2,1)
           p.write_text(s,encoding='utf-8')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add v4/MainActivity.kt
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Rename Employee wording to Physio throughout app [rename-physio-done]"
+          git commit -m "Add Physio My Profile with photo and details [profile-done]" || exit 0
           git push
