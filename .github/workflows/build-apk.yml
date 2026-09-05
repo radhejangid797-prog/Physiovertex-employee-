@@ -47,6 +47,44 @@ jobs:
           print('Official PhysioVertex website logo downloaded:', out.stat().st_size, 'bytes')
           PY
           test -s "$LOGO_OUT"
+
+          # Use the official PhysioVertex logo as the Android launcher/app icon.
+          # Create density-specific square icons with safe white padding so the logo
+          # remains visible inside circular/rounded launchers.
+          export PROJECT_DIR="$P"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from PIL import Image
+          p = Path(os.environ['PROJECT_DIR'])
+          src = Image.open(p/'app/src/main/res/drawable/physiovertex_logo.png').convert('RGBA')
+          box = src.getbbox()
+          if box: src = src.crop(box)
+          sizes = {'mipmap-mdpi':48,'mipmap-hdpi':72,'mipmap-xhdpi':96,'mipmap-xxhdpi':144,'mipmap-xxxhdpi':192}
+          for folder,size in sizes.items():
+              d=p/'app/src/main/res'/folder; d.mkdir(parents=True,exist_ok=True)
+              canvas=Image.new('RGBA',(size,size),(255,255,255,255))
+              maxw=maxh=int(size*.76)
+              im=src.copy(); im.thumbnail((maxw,maxh),Image.Resampling.LANCZOS)
+              canvas.alpha_composite(im,((size-im.width)//2,(size-im.height)//2))
+              canvas.convert('RGB').save(d/'ic_launcher.png','PNG')
+              canvas.convert('RGB').save(d/'ic_launcher_round.png','PNG')
+          PY
+          MANIFEST="$P/app/src/main/AndroidManifest.xml"
+          test -f "$MANIFEST"
+          python3 - "$MANIFEST" <<'PY'
+          import sys,re
+          path=sys.argv[1]
+          s=open(path,encoding='utf-8').read()
+          s=re.sub(r'android:icon="[^"]*"','android:icon="@mipmap/ic_launcher"',s)
+          if 'android:icon=' not in s:
+              s=s.replace('<application','<application android:icon="@mipmap/ic_launcher"',1)
+          s=re.sub(r'android:roundIcon="[^"]*"','android:roundIcon="@mipmap/ic_launcher_round"',s)
+          if 'android:roundIcon=' not in s:
+              s=s.replace('<application','<application android:roundIcon="@mipmap/ic_launcher_round"',1)
+          open(path,'w',encoding='utf-8').write(s)
+          PY
+          grep -q '@mipmap/ic_launcher' "$MANIFEST"
           grep -q 'physiovertex_logo' "$MAIN"
           grep -q 'Admin Dashboard' "$MAIN"
           grep -q 'Check In with Selfie' "$MAIN"
@@ -61,7 +99,7 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-          echo "OFFICIAL WEBSITE BRAND SOURCE VERIFIED"
+          echo "OFFICIAL LOGO APP ICON + BRAND SOURCE VERIFIED"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
