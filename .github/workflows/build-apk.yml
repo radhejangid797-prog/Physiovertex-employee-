@@ -68,22 +68,26 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
       - name: Build APK
         shell: bash
         run: |
+          set -e
           cd "${{ steps.project.outputs.dir }}"
-          gradle assembleDebug --stacktrace --no-daemon
+          for attempt in 1 2 3; do
+            echo "Build attempt $attempt"
+            if gradle assembleDebug --stacktrace --no-daemon; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 10; fi
+          done
+          exit 1
       - name: Prepare APK
-        id: apk
         shell: bash
         run: |
+          set -e
           APK=$(find "${{ steps.project.outputs.dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -1)
           test -n "$APK"
           cp "$APK" PhysioVertex-Latest.apk
-          echo "file=PhysioVertex-Latest.apk" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-APK-PHYSIO
