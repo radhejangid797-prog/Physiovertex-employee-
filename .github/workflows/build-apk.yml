@@ -30,7 +30,6 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
-
           mkdir -p "$P/app/src/main/res/drawable"
           export LOGO_OUT="$P/app/src/main/res/drawable/physiovertex_logo.png"
           python3 - <<'PY'
@@ -38,35 +37,20 @@ jobs:
           from pathlib import Path
           from urllib.parse import quote
           url='https://physiovertex.in/imgaes/'+quote('Screenshot 2025-11-30 at 5.42.01\u202fPM.png')
-          out=Path(os.environ['LOGO_OUT'])
-          urllib.request.urlretrieve(url,out)
+          out=Path(os.environ['LOGO_OUT']); urllib.request.urlretrieve(url,out)
           if out.stat().st_size < 1000: raise SystemExit('Logo download failed')
           PY
-
-          ICON_B64='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'
-          echo "$ICON_B64" | base64 -d > /tmp/icon.png
-          for D in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-            mkdir -p "$P/app/src/main/res/$D"
-            cp /tmp/icon.png "$P/app/src/main/res/$D/ic_launcher.png"
-            cp /tmp/icon.png "$P/app/src/main/res/$D/ic_launcher_round.png"
-          done
-
           MANIFEST="$P/app/src/main/AndroidManifest.xml"
           python3 - "$MANIFEST" <<'PY'
           import sys,re
           p=sys.argv[1]; s=open(p,encoding='utf-8').read()
-          s=re.sub(r'android:icon="[^"]*"','android:icon="@mipmap/ic_launcher"',s)
-          if 'android:icon=' not in s: s=s.replace('<application','<application android:icon="@mipmap/ic_launcher"',1)
-          s=re.sub(r'android:roundIcon="[^"]*"','android:roundIcon="@mipmap/ic_launcher_round"',s)
-          if 'android:roundIcon=' not in s: s=s.replace('<application','<application android:roundIcon="@mipmap/ic_launcher_round"',1)
           s=re.sub(r'android:label="[^"]*"','android:label="PhysioVertex"',s,1)
           if 'android:label=' not in s: s=s.replace('<application','<application android:label="PhysioVertex"',1)
           open(p,'w',encoding='utf-8').write(s)
           PY
-          grep -q 'android:label="PhysioVertex"' "$MANIFEST"
-          grep -q 'Admin Dashboard' "$MAIN"
-          grep -q 'Employee Records' "$MAIN"
-
+          grep -q 'Physio Attendance & Management' "$MAIN"
+          grep -q 'Physio Login' "$MAIN"
+          grep -q 'Physio Records' "$MAIN"
           cat >> "$P/app/build.gradle" <<'EOF'
 
           android {
@@ -94,6 +78,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-APK
+          name: PhysioVertex-APK-PHYSIO
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
