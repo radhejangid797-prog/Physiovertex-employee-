@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.*
 import android.content.Intent
+import android.net.Uri
 import android.provider.MediaStore
 import java.io.File
 import java.io.FileOutputStream
@@ -57,19 +58,54 @@ class MainActivity : Activity() {
     private fun archivedIds()=prefs.all.keys.filter{it.startsWith("archived_")&&it.endsWith("_name")}.map{it.removePrefix("archived_").removeSuffix("_name")}.distinct().sorted()
     private fun recordIds()=(ids()+archivedIds()).distinct().sorted()
 
-    private fun role(){val v=base(true);brand(v,"Physio Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Physio Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()})}
-    private fun empLogin(){val v=base(true);brand(v,"Physio Portal");v.addView(title("Physio Login"));val id=edit("Physio ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}
+    private fun role(){val v=base(true);brand(v,"Physio Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Physio Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()});v.addView(sp());v.addView(backBtn("Update App"){openLatestUpdate()})}
+    private fun empLogin(){val v=base(true);brand(v,"Physio Portal");v.addView(title("Physio Login"));val id=edit("Physio ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login or profile not activated",Toast.LENGTH_SHORT).show()});v.addView(sp(10));v.addView(backBtn("Create Profile / Register"){registerPhysio()});v.addView(sp());v.addView(backBtn{role()})}
+    private fun openLatestUpdate(){
+        try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}
+        catch(e:Exception){Toast.makeText(this,"Unable to open update link",Toast.LENGTH_SHORT).show()}
+    }
+
+    private fun registerPhysio(){
+        val v=base();brand(v,"New Physio Registration");v.addView(title("Create Profile"))
+        val n=edit("Full Name");val m=edit("Mobile Number");m.inputType=InputType.TYPE_CLASS_PHONE
+        val e=edit("Email");e.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        val q=edit("Qualification");val a=edit("Address");val pass=edit("Create Password",true)
+        v.addView(n);v.addView(m);v.addView(e);v.addView(q);v.addView(a);v.addView(pass);v.addView(sp(12))
+        v.addView(btn("Submit Profile"){
+            val name=n.text.toString().trim();val mobile=m.text.toString().trim();val password=pass.text.toString()
+            if(name.isBlank()||mobile.isBlank()||password.isBlank()) Toast.makeText(this,"Name, mobile and password required",Toast.LENGTH_SHORT).show()
+            else {val k="reg_${System.currentTimeMillis()}";prefs.edit().putString(k,"$name|$mobile|${e.text.toString().trim()}|${q.text.toString().trim()}|${a.text.toString().trim()}|$password|PENDING").apply();Toast.makeText(this,"Profile submitted. Wait for Admin activation.",Toast.LENGTH_LONG).show();empLogin()}
+        });v.addView(sp());v.addView(backBtn{empLogin()})
+    }
+
     private fun adminLogin(){val v=base(true);brand(v,"Administration");v.addView(title("Admin Login"));val id=edit("Admin ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){if(id.text.toString().trim().equals("ADMIN",true)&&p.text.toString()=="2468")adminDash()else Toast.makeText(this,"Invalid Admin Login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}
 
     private fun adminDash(){
         val v=base();brand(v,"PhysioVertex Team Portal");v.addView(title("Admin Dashboard"))
         v.addView(menu("My Physio Dashboard","Personal attendance & physio view"){currentEmployee="PV001";empDash()});v.addView(sp(12))
-        v.addView(menu("Add / Update Physio","Create and manage staff profiles"){editor()});v.addView(sp(12))
+        v.addView(menu("Pending Registrations","Review and activate new Physio profiles"){pendingRegistrations()});v.addView(sp(12));v.addView(menu("Add / Update Physio","Create and manage staff profiles"){editor()});v.addView(sp(12))
         v.addView(menu("Physio Records","Admin-only salary, work and service history"){employeeRecords()});v.addView(sp(12))
         v.addView(menu("Physio List / Delete","View your complete staff directory"){empList()});v.addView(sp(12))
         v.addView(menu("Attendance Overview","Today’s check-in, check-out & selfies"){attendance()});v.addView(sp(12))
         v.addView(menu("Leave Requests","Review pending physio requests"){adminLeaves()});v.addView(sp(20))
         v.addView(backBtn("Logout"){role()})
+    }
+
+    private fun pendingRegistrations(){
+        val v=base();brand(v,"Physio Registrations");v.addView(title("Pending Registrations"))
+        val pending=prefs.all.keys.filter{it.startsWith("reg_") && (prefs.getString(it,"")?:"").endsWith("|PENDING")}.sorted()
+        if(pending.isEmpty()) v.addView(label("No pending registrations"))
+        pending.forEach{k->
+            val x=(prefs.getString(k,"")?:"").split("|",limit=7)
+            val name=x.getOrElse(0){""};val mobile=x.getOrElse(1){""};val email=x.getOrElse(2){""};val qual=x.getOrElse(3){""};val address=x.getOrElse(4){""};val password=x.getOrElse(5){""}
+            v.addView(label("$name\nMobile: $mobile\nEmail: $email\nQualification: $qual\nAddress: $address"));v.addView(sp(8))
+            v.addView(btn("Approve & Create Physio ID"){
+                val used=ids().mapNotNull{it.removePrefix("PV").toIntOrNull()}.toSet();var num=1;while(used.contains(num))num++;val id="PV"+num.toString().padStart(3,'0')
+                if(ids().size>=10) Toast.makeText(this,"Maximum 10 physios allowed",Toast.LENGTH_SHORT).show()
+                else {prefs.edit().putString("emp_${id}_name",name).putString("emp_${id}_pass",password).putString("emp_${id}_salary","0").putString("emp_${id}_joined",today()).putString("profile_${id}_name",name).putString("profile_${id}_mobile",mobile).putString("profile_${id}_email",email).putString("profile_${id}_qualification",qual).putString("profile_${id}_address",address).putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"APPROVED:$id").apply();Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()}
+            });v.addView(sp(8));v.addView(backBtn("Reject"){prefs.edit().putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"REJECTED").apply();pendingRegistrations()});v.addView(sp(16))
+        }
+        v.addView(backBtn{adminDash()})
     }
 
     private fun empDash(){val v=base();brand(v,"Physio Attendance");val name=prefs.getString("emp_${currentEmployee}_name",currentEmployee)?:currentEmployee;v.addView(title("Welcome, $name"));val d=today();val i=prefs.getString("in_${currentEmployee}_$d",null);val o=prefs.getString("out_${currentEmployee}_$d",null);v.addView(label("PHYSIO ID  •  $currentEmployee\n\nTODAY'S ATTENDANCE\nCheck-In   ${i?:"Not marked"}\nCheck-Out  ${o?:"Not marked"}"));v.addView(sp(14));v.addView(btn("Check In with Selfie"){if(i!=null)Toast.makeText(this,"Already checked in",Toast.LENGTH_SHORT).show()else camera("IN")});v.addView(sp(10));v.addView(btn("Check Out with Selfie"){if(i==null)Toast.makeText(this,"Check in first",Toast.LENGTH_SHORT).show()else if(o!=null)Toast.makeText(this,"Already checked out",Toast.LENGTH_SHORT).show()else camera("OUT")});v.addView(sp(18));v.addView(menu("Attendance History","View your last 30 days attendance"){history()});v.addView(sp(10));v.addView(menu("Salary Details","View monthly salary information"){salary()});v.addView(sp(10));v.addView(menu("Leave Request","Submit a new leave request"){leave()});v.addView(sp(20));v.addView(backBtn("Logout"){role()})}
