@@ -40,6 +40,15 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
+          python3 - "$MAIN" <<'PY'
+          import sys
+          p=sys.argv[1]
+          s=open(p,encoding='utf-8').read()
+          bad='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}'
+          good='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}'
+          s=s.replace(bad,good)
+          open(p,'w',encoding='utf-8').write(s)
+          PY
           mkdir -p "$P/app/src/main/res/drawable"
           export LOGO_OUT="$P/app/src/main/res/drawable/physiovertex_logo.png"
           python3 - <<'PY'
@@ -75,9 +84,7 @@ jobs:
           cd "${{ steps.project.outputs.dir }}"
           for attempt in 1 2 3; do
             echo "Build attempt $attempt"
-            if gradle assembleDebug --stacktrace --no-daemon; then
-              exit 0
-            fi
+            if gradle assembleDebug --stacktrace --no-daemon; then exit 0; fi
             if [ "$attempt" -lt 3 ]; then sleep 10; fi
           done
           exit 1
