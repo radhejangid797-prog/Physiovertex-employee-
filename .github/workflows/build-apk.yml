@@ -17,6 +17,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Verify required app features
+        shell: bash
+        run: |
+          set -e
+          grep -F 'Create Profile / Register' v4/MainActivity.kt
+          grep -F 'Update App' v4/MainActivity.kt
+          grep -F 'Pending Registrations' v4/MainActivity.kt
       - name: Prepare Android project
         id: project
         shell: bash
