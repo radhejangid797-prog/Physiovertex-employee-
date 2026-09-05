@@ -31,53 +31,42 @@ jobs:
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
 
-          # Keep official full logo inside the app header.
           mkdir -p "$P/app/src/main/res/drawable"
           export LOGO_OUT="$P/app/src/main/res/drawable/physiovertex_logo.png"
           python3 - <<'PY'
           import os, urllib.request
           from pathlib import Path
           from urllib.parse import quote
-          base = 'https://physiovertex.in/imgaes/'
-          name = 'Screenshot 2025-11-30 at 5.42.01\u202fPM.png'
-          url = base + quote(name)
-          out = Path(os.environ['LOGO_OUT'])
-          out.parent.mkdir(parents=True, exist_ok=True)
-          urllib.request.urlretrieve(url, out)
-          if out.stat().st_size < 1000:
-              raise SystemExit('Logo download failed')
+          url='https://physiovertex.in/imgaes/'+quote('Screenshot 2025-11-30 at 5.42.01\u202fPM.png')
+          out=Path(os.environ['LOGO_OUT'])
+          urllib.request.urlretrieve(url,out)
+          if out.stat().st_size < 1000: raise SystemExit('Logo download failed')
           PY
-          test -s "$LOGO_OUT"
 
-          # Launcher icon: logo mark only, no PHYSIOVERTEX text.
-          ICON_B64='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'
-          echo "$ICON_B64" | base64 -d > /tmp/physiovertex_icon.png
-          file /tmp/physiovertex_icon.png
+          ICON_B64='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'
+          echo "$ICON_B64" | base64 -d > /tmp/icon.png
           for D in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
             mkdir -p "$P/app/src/main/res/$D"
-            cp /tmp/physiovertex_icon.png "$P/app/src/main/res/$D/ic_launcher.png"
-            cp /tmp/physiovertex_icon.png "$P/app/src/main/res/$D/ic_launcher_round.png"
+            cp /tmp/icon.png "$P/app/src/main/res/$D/ic_launcher.png"
+            cp /tmp/icon.png "$P/app/src/main/res/$D/ic_launcher_round.png"
           done
 
           MANIFEST="$P/app/src/main/AndroidManifest.xml"
-          test -f "$MANIFEST"
           python3 - "$MANIFEST" <<'PY'
           import sys,re
-          path=sys.argv[1]
-          s=open(path,encoding='utf-8').read()
+          p=sys.argv[1]; s=open(p,encoding='utf-8').read()
           s=re.sub(r'android:icon="[^"]*"','android:icon="@mipmap/ic_launcher"',s)
-          if 'android:icon=' not in s:
-              s=s.replace('<application','<application android:icon="@mipmap/ic_launcher"',1)
+          if 'android:icon=' not in s: s=s.replace('<application','<application android:icon="@mipmap/ic_launcher"',1)
           s=re.sub(r'android:roundIcon="[^"]*"','android:roundIcon="@mipmap/ic_launcher_round"',s)
-          if 'android:roundIcon=' not in s:
-              s=s.replace('<application','<application android:roundIcon="@mipmap/ic_launcher_round"',1)
-          open(path,'w',encoding='utf-8').write(s)
+          if 'android:roundIcon=' not in s: s=s.replace('<application','<application android:roundIcon="@mipmap/ic_launcher_round"',1)
+          s=re.sub(r'android:label="[^"]*"','android:label="PhysioVertex"',s,1)
+          if 'android:label=' not in s: s=s.replace('<application','<application android:label="PhysioVertex"',1)
+          open(p,'w',encoding='utf-8').write(s)
           PY
-          grep -q '@mipmap/ic_launcher' "$MANIFEST"
-          grep -q 'physiovertex_logo' "$MAIN"
+          grep -q 'android:label="PhysioVertex"' "$MANIFEST"
           grep -q 'Admin Dashboard' "$MAIN"
-          grep -q 'Check In with Selfie' "$MAIN"
-          grep -q 'Attendance Overview' "$MAIN"
+          grep -q 'Employee Records' "$MAIN"
+
           cat >> "$P/app/build.gradle" <<'EOF'
 
           android {
@@ -88,14 +77,12 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
-          echo "LOGO-ONLY APP ICON + BRAND SOURCE VERIFIED"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build Website Brand APK
+      - name: Build APK
         shell: bash
         run: |
-          set -e
           cd "${{ steps.project.outputs.dir }}"
           gradle assembleDebug --stacktrace --no-daemon
       - name: Find APK
@@ -107,6 +94,6 @@ jobs:
           echo "file=$APK" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: PhysioVertex-LOGO-ONLY-ICON
+          name: PhysioVertex-APK
           path: ${{ steps.apk.outputs.file }}
           if-no-files-found: error
