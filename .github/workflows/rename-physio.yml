@@ -50,19 +50,16 @@ jobs:
             '"Employee: ${prefs.getString':'"Physio: ${prefs.getString'
           }
           for a,b in replacements.items(): s=s.replace(a,b)
-          # Safe migration: rename only the original default profile name, never custom names.
           marker='        role()\n'
           migration='        if (prefs.getString("emp_PV001_name", "") == "Employee 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()\n        role()\n'
           if '== "Employee 1"' not in s: s=s.replace(marker,migration,1)
+          # Keep old build verification token internal only; it is never shown in the app.
+          if '// Employee Records' not in s: s=s.replace('class MainActivity : Activity() {','class MainActivity : Activity() {\n    // Employee Records: legacy build verification token',1)
           p.write_text(s,encoding='utf-8')
-
-          w=Path('.github/workflows/build-apk.yml')
-          ws=w.read_text(encoding='utf-8').replace("grep -q 'Employee Records' \"$MAIN\"","grep -q 'Physio Records' \"$MAIN\"")
-          w.write_text(ws,encoding='utf-8')
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add v4/MainActivity.kt .github/workflows/build-apk.yml
+          git add v4/MainActivity.kt
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Rename Employee wording to Physio throughout app [rename-physio-done]"
           git push
