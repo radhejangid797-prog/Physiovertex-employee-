@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[app-features-done]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,76 +22,32 @@ jobs:
           from pathlib import Path
           p=Path('v4/MainActivity.kt')
           s=p.read_text(encoding='utf-8')
-
           if 'import android.net.Uri' not in s:
               s=s.replace('import android.content.Intent\n','import android.content.Intent\nimport android.net.Uri\n',1)
-
-          # Team portal: add direct app update button.
           old='private fun role(){val v=base(true);brand(v,"Physio Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Physio Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()})}'
           new='private fun role(){val v=base(true);brand(v,"Physio Attendance & Management");v.addView(title("Team Portal"));v.addView(btn("Physio Login"){empLogin()});v.addView(sp());v.addView(btn("Admin Login"){adminLogin()});v.addView(sp());v.addView(backBtn("Update App"){openLatestUpdate()})}'
-          if old in s: s=s.replace(old,new,1)
-
-          # Login screen: registration before login.
+          if old in s:s=s.replace(old,new,1)
           old='private fun empLogin(){val v=base(true);brand(v,"Physio Portal");v.addView(title("Physio Login"));val id=edit("Physio ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login",Toast.LENGTH_SHORT).show()});v.addView(sp());v.addView(backBtn{role()})}'
           new='private fun empLogin(){val v=base(true);brand(v,"Physio Portal");v.addView(title("Physio Login"));val id=edit("Physio ID");val p=edit("Password",true);v.addView(id);v.addView(p);v.addView(sp());v.addView(btn("Login"){val e=id.text.toString().trim().uppercase();if(prefs.getString("emp_${e}_pass",null)==p.text.toString()){currentEmployee=e;empDash()}else Toast.makeText(this,"Invalid login or profile not activated",Toast.LENGTH_SHORT).show()});v.addView(sp(10));v.addView(backBtn("Create Profile / Register"){registerPhysio()});v.addView(sp());v.addView(backBtn{role()})}'
-          if old in s: s=s.replace(old,new,1)
-
+          if old in s:s=s.replace(old,new,1)
           marker='    private fun adminLogin(){'
           if 'private fun openLatestUpdate()' not in s:
-              fn='''    private fun openLatestUpdate(){
-        try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}
-        catch(e:Exception){Toast.makeText(this,"Unable to open update link",Toast.LENGTH_SHORT).show()}
-    }
-
-    private fun registerPhysio(){
-        val v=base();brand(v,"New Physio Registration");v.addView(title("Create Profile"))
-        val n=edit("Full Name");val m=edit("Mobile Number");m.inputType=InputType.TYPE_CLASS_PHONE
-        val e=edit("Email");e.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        val q=edit("Qualification");val a=edit("Address");val pass=edit("Create Password",true)
-        v.addView(n);v.addView(m);v.addView(e);v.addView(q);v.addView(a);v.addView(pass);v.addView(sp(12))
-        v.addView(btn("Submit Profile"){
-            val name=n.text.toString().trim();val mobile=m.text.toString().trim();val password=pass.text.toString()
-            if(name.isBlank()||mobile.isBlank()||password.isBlank()) Toast.makeText(this,"Name, mobile and password required",Toast.LENGTH_SHORT).show()
-            else {val k="reg_${System.currentTimeMillis()}";prefs.edit().putString(k,"$name|$mobile|${e.text.toString().trim()}|${q.text.toString().trim()}|${a.text.toString().trim()}|$password|PENDING").apply();Toast.makeText(this,"Profile submitted. Wait for Admin activation.",Toast.LENGTH_LONG).show();empLogin()}
-        });v.addView(sp());v.addView(backBtn{empLogin()})
-    }
-
-'''
-              if marker not in s: raise SystemExit('adminLogin marker missing')
+              fn='''    private fun openLatestUpdate(){\n        try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}\n        catch(e:Exception){Toast.makeText(this,"Unable to open update link",Toast.LENGTH_SHORT).show()}\n    }\n\n    private fun registerPhysio(){\n        val v=base();brand(v,"New Physio Registration");v.addView(title("Create Profile"))\n        val n=edit("Full Name");val m=edit("Mobile Number");m.inputType=InputType.TYPE_CLASS_PHONE\n        val e=edit("Email");e.inputType=InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS\n        val q=edit("Qualification");val a=edit("Address");val pass=edit("Create Password",true)\n        v.addView(n);v.addView(m);v.addView(e);v.addView(q);v.addView(a);v.addView(pass);v.addView(sp(12))\n        v.addView(btn("Submit Profile"){\n            val name=n.text.toString().trim();val mobile=m.text.toString().trim();val password=pass.text.toString()\n            if(name.isBlank()||mobile.isBlank()||password.isBlank()) Toast.makeText(this,"Name, mobile and password required",Toast.LENGTH_SHORT).show()\n            else {val k="reg_${System.currentTimeMillis()}";prefs.edit().putString(k,"$name|$mobile|${e.text.toString().trim()}|${q.text.toString().trim()}|${a.text.toString().trim()}|$password|PENDING").apply();Toast.makeText(this,"Profile submitted. Wait for Admin activation.",Toast.LENGTH_LONG).show();empLogin()}\n        });v.addView(sp());v.addView(backBtn{empLogin()})\n    }\n\n'''
               s=s.replace(marker,fn+marker,1)
-
-          # Admin dashboard pending registrations entry.
           old='v.addView(menu("Add / Update Physio","Create and manage staff profiles"){editor()});v.addView(sp(12))'
           new='v.addView(menu("Pending Registrations","Review and activate new Physio profiles"){pendingRegistrations()});v.addView(sp(12));'+old
-          if old in s and 'menu("Pending Registrations"' not in s: s=s.replace(old,new,1)
-
-          marker2='    private fun empDash(){'
+          if old in s and 'menu("Pending Registrations"' not in s:s=s.replace(old,new,1)
+          marker='    private fun empDash(){'
           if 'private fun pendingRegistrations()' not in s:
-              fn2='''    private fun pendingRegistrations(){
-        val v=base();brand(v,"Physio Registrations");v.addView(title("Pending Registrations"))
-        val pending=prefs.all.keys.filter{it.startsWith("reg_") && (prefs.getString(it,"")?:"").endsWith("|PENDING")}.sorted()
-        if(pending.isEmpty()) v.addView(label("No pending registrations"))
-        pending.forEach{k->
-            val x=(prefs.getString(k,"")?:"").split("|",limit=7)
-            val name=x.getOrElse(0){""};val mobile=x.getOrElse(1){""};val email=x.getOrElse(2){""};val qual=x.getOrElse(3){""};val address=x.getOrElse(4){""};val password=x.getOrElse(5){""}
-            v.addView(label("$name\nMobile: $mobile\nEmail: $email\nQualification: $qual\nAddress: $address"));v.addView(sp(8))
-            v.addView(btn("Approve & Create Physio ID"){
-                val used=ids().mapNotNull{it.removePrefix("PV").toIntOrNull()}.toSet();var num=1;while(used.contains(num))num++;val id="PV"+num.toString().padStart(3,'0')
-                if(ids().size>=10) Toast.makeText(this,"Maximum 10 physios allowed",Toast.LENGTH_SHORT).show()
-                else {prefs.edit().putString("emp_${id}_name",name).putString("emp_${id}_pass",password).putString("emp_${id}_salary","0").putString("emp_${id}_joined",today()).putString("profile_${id}_name",name).putString("profile_${id}_mobile",mobile).putString("profile_${id}_email",email).putString("profile_${id}_qualification",qual).putString("profile_${id}_address",address).putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"APPROVED:$id").apply();Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()}
-            });v.addView(sp(8));v.addView(backBtn("Reject"){prefs.edit().putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"REJECTED").apply();pendingRegistrations()});v.addView(sp(16))
-        }
-        v.addView(backBtn{adminDash()})
-    }
-
-'''
-              if marker2 not in s: raise SystemExit('empDash marker missing')
-              s=s.replace(marker2,fn2+marker2,1)
-
+              fn='''    private fun pendingRegistrations(){\n        val v=base();brand(v,"Physio Registrations");v.addView(title("Pending Registrations"))\n        val pending=prefs.all.keys.filter{it.startsWith("reg_") && (prefs.getString(it,"")?:"").endsWith("|PENDING")}.sorted()\n        if(pending.isEmpty()) v.addView(label("No pending registrations"))\n        pending.forEach{k->\n            val x=(prefs.getString(k,"")?:"").split("|",limit=7)\n            val name=x.getOrElse(0){""};val mobile=x.getOrElse(1){""};val email=x.getOrElse(2){""};val qual=x.getOrElse(3){""};val address=x.getOrElse(4){""};val password=x.getOrElse(5){""}\n            v.addView(label("$name\\nMobile: $mobile\\nEmail: $email\\nQualification: $qual\\nAddress: $address"));v.addView(sp(8))\n            v.addView(btn("Approve & Create Physio ID"){\n                val used=ids().mapNotNull{it.removePrefix("PV").toIntOrNull()}.toSet();var num=1;while(used.contains(num))num++;val id="PV"+num.toString().padStart(3,'0')\n                if(ids().size>=10) Toast.makeText(this,"Maximum 10 physios allowed",Toast.LENGTH_SHORT).show()\n                else {prefs.edit().putString("emp_${id}_name",name).putString("emp_${id}_pass",password).putString("emp_${id}_salary","0").putString("emp_${id}_joined",today()).putString("profile_${id}_name",name).putString("profile_${id}_mobile",mobile).putString("profile_${id}_email",email).putString("profile_${id}_qualification",qual).putString("profile_${id}_address",address).putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"APPROVED:$id").apply();Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()}\n            });v.addView(sp(8));v.addView(backBtn("Reject"){prefs.edit().putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"REJECTED").apply();pendingRegistrations()});v.addView(sp(16))\n        }\n        v.addView(backBtn{adminDash()})\n    }\n\n'''
+              s=s.replace(marker,fn+marker,1)
           p.write_text(s,encoding='utf-8')
+          assert 'private fun openLatestUpdate()' in s
+          assert 'Create Profile / Register' in s
+          assert 'private fun pendingRegistrations()' in s
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add v4/MainActivity.kt
-          git commit -m "Add registration and in-app updater [app-features-done]" || exit 0
+          git commit -m "Apply Physio registration and updater to source [features-applied]" || exit 0
           git push
