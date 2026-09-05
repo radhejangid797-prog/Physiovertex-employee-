@@ -1,0 +1,68 @@
+name: Apply Physio wording
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rename:
+    if: ${{ !contains(github.event.head_commit.message, '[rename-physio-done]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rename visible Employee wording to Physio
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('v4/MainActivity.kt')
+          s=p.read_text(encoding='utf-8')
+          replacements={
+            '"Employee 1"':'"Physio 1"',
+            '"Employee Attendance & Management"':'"Physio Attendance & Management"',
+            '"Employee Login"':'"Physio Login"',
+            '"Employee Portal"':'"Physio Portal"',
+            '"Employee ID"':'"Physio ID"',
+            '"My Employee Dashboard"':'"My Physio Dashboard"',
+            '"Personal attendance & employee view"':'"Personal attendance & physio view"',
+            '"Add / Update Employee"':'"Add / Update Physio"',
+            '"Employee Records"':'"Physio Records"',
+            '"Employee List / Delete"':'"Physio List / Delete"',
+            '"Review pending employee requests"':'"Review pending physio requests"',
+            '"Employee Attendance"':'"Physio Attendance"',
+            '"EMPLOYEE ID  •  $currentEmployee':'"PHYSIO ID  •  $currentEmployee',
+            '"Employee ID e.g. PV002"':'"Physio ID e.g. PV002"',
+            '"Employee Name"':'"Physio Name"',
+            '"Save Employee"':'"Save Physio"',
+            '"Maximum 10 employees allowed"':'"Maximum 10 physios allowed"',
+            '"Employee List"':'"Physio List"',
+            '"No employee records"':'"No physio records"',
+            '"Admin Only Employee Record"':'"Admin Only Physio Record"',
+            '"EMPLOYEE ID: $id':'"PHYSIO ID: $id',
+            '"Employee Leave"':'"Physio Leave"',
+            '"Employee Payroll"':'"Physio Payroll"',
+            '"Employee: ${prefs.getString':'"Physio: ${prefs.getString'
+          }
+          for a,b in replacements.items(): s=s.replace(a,b)
+          # Safe migration: rename only the original default profile name, never custom names.
+          marker='        role()\n'
+          migration='        if (prefs.getString("emp_PV001_name", "") == "Employee 1") prefs.edit().putString("emp_PV001_name", "Physio 1").apply()\n        role()\n'
+          if '== "Employee 1"' not in s: s=s.replace(marker,migration,1)
+          p.write_text(s,encoding='utf-8')
+
+          w=Path('.github/workflows/build-apk.yml')
+          ws=w.read_text(encoding='utf-8').replace("grep -q 'Employee Records' \"$MAIN\"","grep -q 'Physio Records' \"$MAIN\"")
+          w.write_text(ws,encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add v4/MainActivity.kt .github/workflows/build-apk.yml
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Rename Employee wording to Physio throughout app [rename-physio-done]"
+          git push
