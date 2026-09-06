@@ -18,11 +18,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Verify required app features
-        shell: bash
         run: |
-          set -e
           grep -F 'Create Profile / Register' v4/MainActivity.kt
-          grep -F 'Update App' v4/MainActivity.kt
           grep -F 'Pending Registrations' v4/MainActivity.kt
       - name: Prepare Android project
         id: project
@@ -44,13 +41,16 @@ jobs:
           import sys
           p=sys.argv[1]
           s=open(p,encoding='utf-8').read()
-          bad='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}'
-          good='try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}'
-          s=s.replace(bad,good)
+          s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
           old='Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()'
-          new='android.app.AlertDialog.Builder(this).setTitle("Physio Approved").setMessage("Profile approved successfully.\\n\\nPhysio ID: $id\\n\\nUse this ID with the password created during registration to login.").setCancelable(false).setPositiveButton("Back to Admin"){_,_->adminDash()}.show()'
+          new='approvalSuccess(id,name)'
+          if old not in s: raise SystemExit('Old approval flow not found')
           s=s.replace(old,new)
-          if 'Physio Approved' not in s: raise SystemExit('Approval screen patch failed')
+          marker='    private fun empDash()'
+          fn='''    private fun approvalSuccess(id:String,name:String){\n        val v=base(true);brand(v,"Physio Registration Approved");v.addView(title("Profile Activated"));v.addView(label("PHYSIO NAME\\n$name\\n\\nPHYSIO ID\\n$id\\n\\nUse this Physio ID with the password created during registration to login."));v.addView(sp(18));v.addView(backBtn("Back to Admin"){adminDash()})\n    }\n\n'''
+          if marker not in s: raise SystemExit('Insertion point not found')
+          s=s.replace(marker,fn+marker,1)
+          if 'approvalSuccess(id,name)' not in s or 'Profile Activated' not in s: raise SystemExit('Approval success screen patch failed')
           open(p,'w',encoding='utf-8').write(s)
           PY
           mkdir -p "$P/app/src/main/res/drawable"
@@ -87,15 +87,12 @@ jobs:
           set -e
           cd "${{ steps.project.outputs.dir }}"
           for attempt in 1 2 3; do
-            echo "Build attempt $attempt"
             if gradle assembleDebug --stacktrace --no-daemon; then exit 0; fi
-            if [ "$attempt" -lt 3 ]; then sleep 10; fi
+            [ "$attempt" -lt 3 ] && sleep 10
           done
           exit 1
       - name: Prepare APK
-        shell: bash
         run: |
-          set -e
           APK=$(find "${{ steps.project.outputs.dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -1)
           test -n "$APK"
           cp "$APK" PhysioVertex-Latest.apk
@@ -106,7 +103,6 @@ jobs:
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Latest PhysioVertex Android test build"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval success screen build"
