@@ -102,7 +102,15 @@ class MainActivity : Activity() {
             v.addView(btn("Approve & Create Physio ID"){
                 val used=ids().mapNotNull{it.removePrefix("PV").toIntOrNull()}.toSet();var num=1;while(used.contains(num))num++;val id="PV"+num.toString().padStart(3,'0')
                 if(ids().size>=10) Toast.makeText(this,"Maximum 10 physios allowed",Toast.LENGTH_SHORT).show()
-                else {prefs.edit().putString("emp_${id}_name",name).putString("emp_${id}_pass",password).putString("emp_${id}_salary","0").putString("emp_${id}_joined",today()).putString("profile_${id}_name",name).putString("profile_${id}_mobile",mobile).putString("profile_${id}_email",email).putString("profile_${id}_qualification",qual).putString("profile_${id}_address",address).putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"APPROVED:$id").apply();Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()}
+                else {
+                    prefs.edit().putString("emp_${id}_name",name).putString("emp_${id}_pass",password).putString("emp_${id}_salary","0").putString("emp_${id}_joined",today()).putString("profile_${id}_name",name).putString("profile_${id}_mobile",mobile).putString("profile_${id}_email",email).putString("profile_${id}_qualification",qual).putString("profile_${id}_address",address).putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"APPROVED:$id").apply()
+                    AlertDialog.Builder(this)
+                        .setTitle("Physio Approved")
+                        .setMessage("Profile approved successfully.\n\nPhysio ID: $id\n\nUse this ID with the registration password to login.")
+                        .setCancelable(false)
+                        .setPositiveButton("Back to Admin"){_,_->adminDash()}
+                        .show()
+                }
             });v.addView(sp(8));v.addView(backBtn("Reject"){prefs.edit().putString(k,(prefs.getString(k,"")?:"").removeSuffix("PENDING")+"REJECTED").apply();pendingRegistrations()});v.addView(sp(16))
         }
         v.addView(backBtn{adminDash()})
