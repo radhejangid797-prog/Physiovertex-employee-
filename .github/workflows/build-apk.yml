@@ -162,3 +162,5 @@ jobs:
         run: |
           gh release delete latest --cleanup-tag -y || true
           gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Build 56" --notes "Payroll management build 56"
+
+# Trigger Build 56 APK
