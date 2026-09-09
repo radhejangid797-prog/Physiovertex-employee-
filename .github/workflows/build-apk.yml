@@ -52,8 +52,10 @@ jobs:
           s=open(p,encoding='utf-8').read()
           s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
           s=s.replace('AlertDialog.Builder(this)', 'android.app.AlertDialog.Builder(this)')
-          if 'Physio Approved' not in s or 'Physio ID: $id' not in s:
-              raise SystemExit('Approval success dialog missing from source')
+          s=s.replace('brand(v,"Physio Registrations")', 'brand(v,"Physio Registrations • Build 54")')
+          s=s.replace('.setTitle("Physio Approved")', '.setTitle("Physio Approved • Build 54")')
+          if 'Physio Approved • Build 54' not in s or 'Physio ID: $id' not in s:
+              raise SystemExit('Build 54 approval success dialog missing from source')
           if 'Activated: $id' in s:
               raise SystemExit('Old approval toast still exists in source')
           open(p,'w',encoding='utf-8').write(s)
@@ -101,11 +103,22 @@ jobs:
           done
           exit 1
 
-      - name: Prepare APK
+      - name: Prepare and verify APK
         run: |
           APK=$(find "${{ steps.project.outputs.dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -1)
           test -n "$APK"
           cp "$APK" PhysioVertex-Latest.apk
+          python3 - <<'PY'
+          import zipfile
+          apk='PhysioVertex-Latest.apk'
+          with zipfile.ZipFile(apk) as z:
+              dex=b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
+          if b'Physio Approved' not in dex or b'Build 54' not in dex or b'Physio ID:' not in dex:
+              raise SystemExit('ERROR: final APK does not contain Build 54 approval dialog')
+          if b'Activated:' in dex:
+              raise SystemExit('ERROR: final APK still contains old Activated toast')
+          print('FINAL APK VERIFIED: Build 54 dialog present; old Activated toast absent')
+          PY
 
       - uses: actions/upload-artifact@v4
         with:
@@ -117,4 +130,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval dialog direct-source build"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Build 54 verified approval dialog APK"
