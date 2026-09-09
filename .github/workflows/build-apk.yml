@@ -17,10 +17,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Verify required app features
         run: |
           grep -F 'Create Profile / Register' v4/MainActivity.kt
           grep -F 'Pending Registrations' v4/MainActivity.kt
+          grep -F 'approvalSuccess(id,name)' v4/MainActivity.kt
+          grep -F 'Profile Activated' v4/MainActivity.kt
+          if grep -F 'Activated: $id' v4/MainActivity.kt; then
+            echo 'ERROR: old approval toast still exists in source'
+            exit 1
+          fi
+
       - name: Prepare Android project
         id: project
         shell: bash
@@ -37,22 +45,19 @@ jobs:
           MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
           test -n "$MAIN"
           cp v4/MainActivity.kt "$MAIN"
+
           python3 - "$MAIN" <<'PY'
           import sys
           p=sys.argv[1]
           s=open(p,encoding='utf-8').read()
           s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
-          old='Toast.makeText(this,"Activated: $id",Toast.LENGTH_LONG).show();pendingRegistrations()'
-          new='approvalSuccess(id,name)'
-          if old not in s: raise SystemExit('Old approval flow not found')
-          s=s.replace(old,new)
-          marker='    private fun empDash()'
-          fn='''    private fun approvalSuccess(id:String,name:String){\n        val v=base(true);brand(v,"Physio Registration Approved");v.addView(title("Profile Activated"));v.addView(label("PHYSIO NAME\\n$name\\n\\nPHYSIO ID\\n$id\\n\\nUse this Physio ID with the password created during registration to login."));v.addView(sp(18));v.addView(backBtn("Back to Admin"){adminDash()})\n    }\n\n'''
-          if marker not in s: raise SystemExit('Insertion point not found')
-          s=s.replace(marker,fn+marker,1)
-          if 'approvalSuccess(id,name)' not in s or 'Profile Activated' not in s: raise SystemExit('Approval success screen patch failed')
+          if 'approvalSuccess(id,name)' not in s or 'Profile Activated' not in s:
+              raise SystemExit('Approval success screen missing from source')
+          if 'Activated: $id' in s:
+              raise SystemExit('Old approval toast still exists in source')
           open(p,'w',encoding='utf-8').write(s)
           PY
+
           mkdir -p "$P/app/src/main/res/drawable"
           export LOGO_OUT="$P/app/src/main/res/drawable/physiovertex_logo.png"
           python3 - <<'PY'
@@ -63,6 +68,7 @@ jobs:
           out=Path(os.environ['LOGO_OUT']); urllib.request.urlretrieve(url,out)
           if out.stat().st_size < 1000: raise SystemExit('Logo download failed')
           PY
+
           MANIFEST="$P/app/src/main/AndroidManifest.xml"
           python3 - "$MANIFEST" <<'PY'
           import sys,re
@@ -71,6 +77,7 @@ jobs:
           if 'android:label=' not in s: s=s.replace('<application','<application android:label="PhysioVertex"',1)
           open(p,'w',encoding='utf-8').write(s)
           PY
+
           cat >> "$P/app/build.gradle" <<'EOF'
 
           android {
@@ -81,6 +88,7 @@ jobs:
             kotlinOptions { jvmTarget = '17' }
           }
           EOF
+
       - name: Build APK
         shell: bash
         run: |
@@ -91,18 +99,21 @@ jobs:
             [ "$attempt" -lt 3 ] && sleep 10
           done
           exit 1
+
       - name: Prepare APK
         run: |
           APK=$(find "${{ steps.project.outputs.dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -1)
           test -n "$APK"
           cp "$APK" PhysioVertex-Latest.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: PhysioVertex-APK-PHYSIO
           path: PhysioVertex-Latest.apk
+
       - name: Publish direct-download release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval success screen build"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval success screen source build"
