@@ -51,6 +51,7 @@ jobs:
           p=sys.argv[1]
           s=open(p,encoding='utf-8').read()
           s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
+          s=s.replace('AlertDialog.Builder(this)', 'android.app.AlertDialog.Builder(this)')
           if 'Physio Approved' not in s or 'Physio ID: $id' not in s:
               raise SystemExit('Approval success dialog missing from source')
           if 'Activated: $id' in s:
