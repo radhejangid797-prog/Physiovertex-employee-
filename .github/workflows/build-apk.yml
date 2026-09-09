@@ -22,8 +22,8 @@ jobs:
         run: |
           grep -F 'Create Profile / Register' v4/MainActivity.kt
           grep -F 'Pending Registrations' v4/MainActivity.kt
-          grep -F 'approvalSuccess(id,name)' v4/MainActivity.kt
-          grep -F 'Profile Activated' v4/MainActivity.kt
+          grep -F 'Physio Approved' v4/MainActivity.kt
+          grep -F 'Physio ID: $id' v4/MainActivity.kt
           if grep -F 'Activated: $id' v4/MainActivity.kt; then
             echo 'ERROR: old approval toast still exists in source'
             exit 1
@@ -51,8 +51,8 @@ jobs:
           p=sys.argv[1]
           s=open(p,encoding='utf-8').read()
           s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
-          if 'approvalSuccess(id,name)' not in s or 'Profile Activated' not in s:
-              raise SystemExit('Approval success screen missing from source')
+          if 'Physio Approved' not in s or 'Physio ID: $id' not in s:
+              raise SystemExit('Approval success dialog missing from source')
           if 'Activated: $id' in s:
               raise SystemExit('Old approval toast still exists in source')
           open(p,'w',encoding='utf-8').write(s)
@@ -116,4 +116,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval success screen source build"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Approval dialog direct-source build"
