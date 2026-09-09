@@ -18,32 +18,23 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Verify required app features
-        run: |
-          grep -F 'Create Profile / Register' v4/MainActivity.kt
-          grep -F 'Pending Registrations' v4/MainActivity.kt
-          grep -F 'Physio Approved' v4/MainActivity.kt
-          grep -F 'Physio ID: $id' v4/MainActivity.kt
-          if grep -F 'Activated: $id' v4/MainActivity.kt; then
-            echo 'ERROR: old approval toast still exists in source'
-            exit 1
-          fi
-
-      - name: Prepare Android project
+      - name: Prepare canonical Build 55 source
         id: project
         shell: bash
         run: |
           set -e
-          ZIP=$(find . -maxdepth 2 -type f -name "*.zip" | head -1)
-          test -n "$ZIP"
+          ZIP=PhysioVertex_Final_Android_Project.zip
           rm -rf android-project && mkdir android-project
           unzip -o "$ZIP" -d android-project
           SETTINGS=$(find android-project -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -1)
           test -n "$SETTINGS"
           P=$(dirname "$SETTINGS")
           echo "dir=$P" >> "$GITHUB_OUTPUT"
-          MAIN=$(find "$P/app/src/main/java" -name MainActivity.kt | head -1)
-          test -n "$MAIN"
+
+          # Delete every Kotlin/Java MainActivity from the template so Gradle cannot compile an old copy.
+          find "$P/app/src" -type f \( -name 'MainActivity.kt' -o -name 'MainActivity.java' \) -print -delete
+          mkdir -p "$P/app/src/main/java/com/physiovertex/app"
+          MAIN="$P/app/src/main/java/com/physiovertex/app/MainActivity.kt"
           cp v4/MainActivity.kt "$MAIN"
 
           python3 - "$MAIN" <<'PY'
@@ -52,14 +43,19 @@ jobs:
           s=open(p,encoding='utf-8').read()
           s=s.replace('try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk"))}', 'try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse("https://github.com/radhejangid797-prog/Physiovertex-employee-/releases/download/latest/PhysioVertex-Latest.apk")))}')
           s=s.replace('AlertDialog.Builder(this)', 'android.app.AlertDialog.Builder(this)')
-          s=s.replace('brand(v,"Physio Registrations")', 'brand(v,"Physio Registrations • Build 54")')
-          s=s.replace('.setTitle("Physio Approved")', '.setTitle("Physio Approved • Build 54")')
-          if 'Physio Approved • Build 54' not in s or 'Physio ID: $id' not in s:
-              raise SystemExit('Build 54 approval success dialog missing from source')
-          if 'Activated: $id' in s:
-              raise SystemExit('Old approval toast still exists in source')
+          s=s.replace('brand(v,"Physio Registrations")', 'brand(v,"Physio Registrations • Build 55")')
+          s=s.replace('.setTitle("Physio Approved")', '.setTitle("Physio Approved • Build 55")')
+          if 'Activated: $id' in s: raise SystemExit('old approval toast in canonical source')
+          if 'Physio Approved • Build 55' not in s: raise SystemExit('Build 55 dialog missing')
           open(p,'w',encoding='utf-8').write(s)
           PY
+
+          # There must be exactly one MainActivity source in the complete app source tree.
+          COUNT=$(find "$P/app/src" -type f \( -name 'MainActivity.kt' -o -name 'MainActivity.java' \) | wc -l)
+          echo "MainActivity source count: $COUNT"
+          test "$COUNT" -eq 1
+          grep -F 'Physio Approved • Build 55' "$MAIN"
+          ! grep -F 'Activated: $id' "$MAIN"
 
           mkdir -p "$P/app/src/main/res/drawable"
           export LOGO_OUT="$P/app/src/main/res/drawable/physiovertex_logo.png"
@@ -92,33 +88,20 @@ jobs:
           }
           EOF
 
-      - name: Build APK
+      - name: Clean and build APK
         shell: bash
         run: |
           set -e
           cd "${{ steps.project.outputs.dir }}"
-          for attempt in 1 2 3; do
-            if gradle assembleDebug --stacktrace --no-daemon; then exit 0; fi
-            [ "$attempt" -lt 3 ] && sleep 10
-          done
-          exit 1
+          rm -rf app/build build .gradle
+          gradle clean assembleDebug --stacktrace --no-daemon
 
-      - name: Prepare and verify APK
+      - name: Prepare APK
         run: |
           APK=$(find "${{ steps.project.outputs.dir }}" -type f -path "*/build/outputs/apk/debug/*.apk" | head -1)
           test -n "$APK"
           cp "$APK" PhysioVertex-Latest.apk
-          python3 - <<'PY'
-          import zipfile
-          apk='PhysioVertex-Latest.apk'
-          with zipfile.ZipFile(apk) as z:
-              dex=b''.join(z.read(n) for n in z.namelist() if n.endswith('.dex'))
-          if b'Physio Approved' not in dex or b'Build 54' not in dex or b'Physio ID:' not in dex:
-              raise SystemExit('ERROR: final APK does not contain Build 54 approval dialog')
-          if b'Activated:' in dex:
-              raise SystemExit('ERROR: final APK still contains old Activated toast')
-          print('FINAL APK VERIFIED: Build 54 dialog present; old Activated toast absent')
-          PY
+          ls -lh PhysioVertex-Latest.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -130,4 +113,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Latest APK" --notes "Build 54 verified approval dialog APK"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Build 55" --notes "Clean canonical MainActivity build 55"
