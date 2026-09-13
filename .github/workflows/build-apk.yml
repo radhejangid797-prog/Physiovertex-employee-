@@ -19,7 +19,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Prepare canonical Build 56 source
+      - name: Prepare canonical Build 57 source
         id: project
         shell: bash
         run: |
@@ -38,6 +38,7 @@ jobs:
           cp v4/MainActivity.kt "$MAIN"
 
           python3 scripts/build56_patch.py "$MAIN"
+          python3 scripts/salarybox_ui_patch.py "$MAIN"
 
           COUNT=$(find "$P/app/src" -type f \( -name 'MainActivity.kt' -o -name 'MainActivity.java' \) | wc -l)
           echo "MainActivity source count: $COUNT"
@@ -45,6 +46,10 @@ jobs:
           grep -F 'Physio Approved • Build 56' "$MAIN"
           grep -F 'Payroll Management' "$MAIN"
           grep -F 'Payable Salary' "$MAIN"
+          grep -F 'PhysioVertex • Home' "$MAIN"
+          grep -F 'Attendance Calendar' "$MAIN"
+          grep -F 'employeeBottomNav' "$MAIN"
+          grep -F 'My Profile' "$MAIN"
           ! grep -F 'Activated: $id' "$MAIN"
 
           mkdir -p "$P/app/src/main/res/drawable"
@@ -103,4 +108,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Build 56" --notes "Payroll management Build 56"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Build 57" --notes "SalaryBox-style dashboard, attendance calendar and profile navigation"
