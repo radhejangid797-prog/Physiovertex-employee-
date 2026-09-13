@@ -19,7 +19,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Prepare canonical Build 57 source
+      - name: Prepare SalaryBox-style PhysioVertex source
         id: project
         shell: bash
         run: |
@@ -39,6 +39,7 @@ jobs:
 
           python3 scripts/build56_patch.py "$MAIN"
           python3 scripts/salarybox_ui_patch.py "$MAIN"
+          python3 scripts/nav_labels_patch.py "$MAIN"
 
           COUNT=$(find "$P/app/src" -type f \( -name 'MainActivity.kt' -o -name 'MainActivity.java' \) | wc -l)
           echo "MainActivity source count: $COUNT"
@@ -48,7 +49,8 @@ jobs:
           grep -F 'Payable Salary' "$MAIN"
           grep -F 'PhysioVertex • Home' "$MAIN"
           grep -F 'Attendance Calendar' "$MAIN"
-          grep -F 'employeeBottomNav' "$MAIN"
+          grep -F '"HOME","HOME"' "$MAIN"
+          grep -F '"PROFILE","PROFILE"' "$MAIN"
           grep -F 'My Profile' "$MAIN"
           ! grep -F 'Activated: $id' "$MAIN"
 
@@ -108,4 +110,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --cleanup-tag -y || true
-          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex Build 57" --notes "SalaryBox-style dashboard, attendance calendar and profile navigation"
+          gh release create latest PhysioVertex-Latest.apk --title "PhysioVertex SalaryBox Style" --notes "Fixed bottom navigation labels and retained attendance, leave, payroll and profile features"
