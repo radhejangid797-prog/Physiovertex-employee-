@@ -24,7 +24,7 @@ new=r'''private fun empDash(){
 
     private fun employeeBottomNav(v:LinearLayout,active:String){
         val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;setPadding(0,8,0,0)}
-        fun item(text:String,selected:Boolean,action:()->Unit)=Button(this).apply{text=textSize.let{text};this.text=text;this.textSize=10f;setTypeface(null,Typeface.BOLD);setTextColor(if(selected)Color.WHITE else navy);background=if(selected)bg(blue,18f) else bg(Color.WHITE,18f,line);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(0,54,1f).apply{setMargins(3,0,3,0)}}
+        fun item(labelText:String,selected:Boolean,action:()->Unit)=Button(this).apply{text=labelText;textSize=10f;setTypeface(null,Typeface.BOLD);setTextColor(if(selected)Color.WHITE else navy);background=if(selected)bg(blue,18f) else bg(Color.WHITE,18f,line);setOnClickListener{action()};layoutParams=LinearLayout.LayoutParams(0,54,1f).apply{setMargins(3,0,3,0)}}
         nav.addView(item("HOME",active=="HOME"){empDash()});nav.addView(item("ATTEND",active=="ATTEND"){attendanceCalendar()});nav.addView(item("LEAVE",active=="LEAVE"){leave()});nav.addView(item("SALARY",active=="SALARY"){salary()});nav.addView(item("PROFILE",active=="PROFILE"){physioProfile()})
         v.addView(nav,LinearLayout.LayoutParams(-1,-2))
     }
